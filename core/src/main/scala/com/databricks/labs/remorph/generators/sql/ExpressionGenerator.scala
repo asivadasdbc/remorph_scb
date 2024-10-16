@@ -66,7 +66,6 @@ class ExpressionGenerator extends Generator[ir.Expression, String] {
       case e: ir.Extract => extract(ctx, e)
       case c: ir.Concat => concat(ctx, c)
       case i: ir.In => in(ctx, i)
-      case ir.ExprList(exprs) => expressionList(ctx, exprs)
 
       // keep this case after every case involving an `Fn`, otherwise it will make said case unreachable
       case fn: ir.Fn => s"${fn.prettyName}(${fn.children.map(expression(ctx, _)).mkString(", ")})"
@@ -475,9 +474,5 @@ class ExpressionGenerator extends Generator[ir.Expression, String] {
 
   private def between(ctx: GeneratorContext, b: ir.Between): String = {
     s"${expression(ctx, b.exp)} BETWEEN ${expression(ctx, b.lower)} AND ${expression(ctx, b.upper)}"
-  }
-
-  private def expressionList(context: GeneratorContext, expr: Seq[ir.Expression]): String = {
-    expr.map(expression(context, _)).mkString("(", ", ", ")")
   }
 }

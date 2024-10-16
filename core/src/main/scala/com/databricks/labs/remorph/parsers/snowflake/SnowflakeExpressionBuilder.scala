@@ -614,21 +614,26 @@ class SnowflakeExpressionBuilder(override val vc: SnowflakeVisitorCoordinator)
   }
 
   override def visitPredIn(ctx: PredInContext): ir.Expression = {
-    val in = if (ctx.subquery() != null) {
-      // In the result of a sub query
-//      ir.In(ctx.expression().accept(this), Seq(ir.ScalarSubquery(ctx.subquery().accept(vc.relationBuilder))))
-      ir.In(ctx.exprList().asScala.head.accept(this), Seq(ir.ScalarSubquery(ctx.subquery().accept(vc.relationBuilder))))
+    val left = if (ctx.exprList() != null) {
+      ctx.exprList().asScala.flatMap(_.expr().asScala.map(_.accept(this)))
+//      ctx.exprList().asScala.map(_.accept(this))
     } else {
-      // In a list of expressions
-//      ir.In(ctx.expression().accept(this), ctx.exprList().expr().asScala.map(_.accept(this)))
-      ir.In(ctx.exprList().asScala.head.accept(this), Seq(ctx.exprList().asScala.head.accept(this)))
+      Seq(ctx.exprList().asScala.map(_.accept(this)))
     }
-    Option(ctx.NOT()).fold[ir.Expression](in)(_ => ir.Not(in))
-  }
 
-  override def visitExprList(ctx: ExprListContext): ir.Expression = {
-    val exprList = ctx.expr().asScala.map(_.accept(this)).toList
-    ir.ExprList(exprList)
+    val right = if (ctx.subquery() != null) {
+      // In the result of a sub query
+      Seq(ir.ScalarSubquery(ctx.subquery().accept(vc.relationBuilder)))
+    } else {
+      Seq(ctx.exprList().asScala.head.accept(this))
+    }
+    left.size match {
+      case 1 =>
+        val in = ir.In(left.head, right)
+        Option(ctx.NOT()).fold[ir.Expression](in)(_ => ir.Not(in))
+      case _ => val in = ir.In(left, right)
+        Option(ctx.NOT()).fold[ir.Expression](in)(_ => ir.Not(in))
+    }
   }
 
   override def visitPredLikeSinglePattern(ctx: PredLikeSinglePatternContext): ir.Expression = {
