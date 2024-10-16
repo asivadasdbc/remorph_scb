@@ -614,13 +614,16 @@ class SnowflakeExpressionBuilder(override val vc: SnowflakeVisitorCoordinator)
   }
 
   override def visitPredIn(ctx: PredInContext): ir.Expression = {
+    // Handling the left side of the IN clause (either an exprList or single expression)
     val left = if (ctx.exprList() != null) {
+      // Map over the expressions in exprList and collect them as a list of ir.Expression
+      // need to figure out why exprList().expr() is not working
       ctx.exprList().asScala.flatMap(_.expr().asScala.map(_.accept(this)))
-//      ctx.exprList().asScala.map(_.accept(this))
     } else {
+      // Handle case where there's no exprList, and we have a single expression
       Seq(ctx.exprList().asScala.map(_.accept(this)))
     }
-
+    // Handling the right side of the IN clause (either a subquery or exprList)
     val right = if (ctx.subquery() != null) {
       // In the result of a sub query
       Seq(ir.ScalarSubquery(ctx.subquery().accept(vc.relationBuilder)))
@@ -629,10 +632,11 @@ class SnowflakeExpressionBuilder(override val vc: SnowflakeVisitorCoordinator)
     }
     left.size match {
       case 1 =>
-        val in = ir.In(left.head, right)
+        val in = ir.In(left.head, right) // If there's only one expression on the left side
         Option(ctx.NOT()).fold[ir.Expression](in)(_ => ir.Not(in))
-      case _ => val in = ir.In(left, right)
-        Option(ctx.NOT()).fold[ir.Expression](in)(_ => ir.Not(in))
+      case _ =>
+        val in = ir.In(left, right)
+        Option(ctx.NOT()).fold[ir.Expression](in)(_ => ir.Not(in)) // If there are multiple expressions on the left side
     }
   }
 
