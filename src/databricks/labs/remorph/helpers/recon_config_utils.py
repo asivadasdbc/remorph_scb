@@ -1,7 +1,7 @@
 import logging
 
 from databricks.labs.blueprint.tui import Prompts
-from databricks.labs.remorph.reconcile.constants import ReconSourceType
+from src.databricks.labs.remorph.reconcile.constants import ReconSourceType
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors.platform import ResourceDoesNotExist
 

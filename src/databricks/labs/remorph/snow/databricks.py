@@ -9,8 +9,8 @@ from sqlglot.errors import ParseError, UnsupportedError
 from sqlglot.helper import apply_index_offset, csv
 from sqlglot.dialects.dialect import if_sql
 
-from databricks.labs.remorph.snow import lca_utils, local_expression
-from databricks.labs.remorph.snow.snowflake import contains_expression, rank_functions
+from src.databricks.labs.remorph.snow import lca_utils, local_expression
+from src.databricks.labs.remorph.snow.snowflake import contains_expression, rank_functions
 
 logger = logging.getLogger(__name__)
 

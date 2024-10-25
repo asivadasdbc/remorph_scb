@@ -11,8 +11,8 @@ from databricks.sdk.errors import InvalidParameterValue
 from databricks.sdk.service import compute
 from databricks.sdk.service.jobs import Task, PythonWheelTask, JobCluster, JobSettings, JobParameterDefinition
 
-from databricks.labs.remorph.config import ReconcileConfig
-from databricks.labs.remorph.reconcile.constants import ReconSourceType
+from src.databricks.labs.remorph.config import ReconcileConfig
+from src.databricks.labs.remorph.reconcile.constants import ReconSourceType
 
 logger = logging.getLogger(__name__)
 

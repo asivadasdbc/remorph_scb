@@ -9,11 +9,11 @@ from sqlglot import Dialect
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
-from databricks.labs.remorph.reconcile.connectors.data_source import DataSource
-from databricks.labs.remorph.reconcile.connectors.jdbc_reader import JDBCReaderMixin
-from databricks.labs.remorph.reconcile.connectors.secrets import SecretsMixin
-from databricks.labs.remorph.reconcile.exception import InvalidSnowflakePemPrivateKey
-from databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions, Schema
+from src.databricks.labs.remorph.reconcile.connectors.data_source import DataSource
+from src.databricks.labs.remorph.reconcile.connectors.jdbc_reader import JDBCReaderMixin
+from src.databricks.labs.remorph.reconcile.connectors.secrets import SecretsMixin
+from src.databricks.labs.remorph.reconcile.exception import InvalidSnowflakePemPrivateKey
+from src.databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions, Schema
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound
 

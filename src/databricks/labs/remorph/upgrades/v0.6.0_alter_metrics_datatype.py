@@ -4,14 +4,14 @@ import logging
 from databricks.labs.blueprint.installation import Installation
 from databricks.sdk import WorkspaceClient
 
-from databricks.labs.remorph.contexts.application import ApplicationContext
-from databricks.labs.remorph.deployment.upgrade_common import (
+from src.databricks.labs.remorph.contexts.application import ApplicationContext
+from src.databricks.labs.remorph.deployment.upgrade_common import (
     current_table_columns,
     installed_table_columns,
     check_table_mismatch,
     recreate_table_sql,
 )
-from databricks.labs.remorph.helpers import db_sql
+from src.databricks.labs.remorph.helpers import db_sql
 
 logger = logging.getLogger(__name__)
 

@@ -1,13 +1,13 @@
 from pyspark.sql import SparkSession
 from sqlglot import Dialect
 
-from databricks.labs.remorph.reconcile.connectors.data_source import DataSource
-from databricks.labs.remorph.reconcile.connectors.databricks import DatabricksDataSource
-from databricks.labs.remorph.reconcile.connectors.oracle import OracleDataSource
-from databricks.labs.remorph.reconcile.connectors.snowflake import SnowflakeDataSource
-from databricks.labs.remorph.snow.databricks import Databricks
-from databricks.labs.remorph.snow.oracle import Oracle
-from databricks.labs.remorph.snow.snowflake import Snow
+from src.databricks.labs.remorph.reconcile.connectors.data_source import DataSource
+from src.databricks.labs.remorph.reconcile.connectors.databricks import DatabricksDataSource
+from src.databricks.labs.remorph.reconcile.connectors.oracle import OracleDataSource
+from src.databricks.labs.remorph.reconcile.connectors.snowflake import SnowflakeDataSource
+from src.databricks.labs.remorph.snow.databricks import Databricks
+from src.databricks.labs.remorph.snow.oracle import Oracle
+from src.databricks.labs.remorph.snow.snowflake import Snow
 from databricks.sdk import WorkspaceClient
 
 

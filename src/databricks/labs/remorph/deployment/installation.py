@@ -11,8 +11,8 @@ from databricks.sdk.errors import NotFound
 from databricks.sdk.mixins.compute import SemVer
 from databricks.sdk.errors.platform import InvalidParameterValue, ResourceDoesNotExist
 
-from databricks.labs.remorph.config import RemorphConfigs
-from databricks.labs.remorph.deployment.recon import ReconDeployment
+from src.databricks.labs.remorph.config import RemorphConfigs
+from src.databricks.labs.remorph.deployment.recon import ReconDeployment
 
 logger = logging.getLogger("databricks.labs.remorph.install")
 

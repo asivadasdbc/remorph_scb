@@ -8,13 +8,13 @@ from pyspark.sql.types import StringType, StructField, StructType
 from pyspark.errors import PySparkException
 from sqlglot import Dialect
 
-from databricks.labs.remorph.config import DatabaseConfig, Table, get_key_from_dialect, ReconcileMetadataConfig
-from databricks.labs.remorph.reconcile.exception import (
+from src.databricks.labs.remorph.config import DatabaseConfig, Table, get_key_from_dialect, ReconcileMetadataConfig
+from src.databricks.labs.remorph.reconcile.exception import (
     WriteToTableException,
     ReadAndWriteWithVolumeException,
     CleanFromVolumeException,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     DataReconcileOutput,
     ReconcileOutput,
     ReconcileProcessDuration,

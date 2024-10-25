@@ -3,29 +3,29 @@ import os
 from pathlib import Path
 
 from sqlglot.dialects.dialect import Dialect
-from databricks.labs.remorph.__about__ import __version__
-from databricks.labs.remorph.config import (
+from src.databricks.labs.remorph.__about__ import __version__
+from src.databricks.labs.remorph.config import (
     MorphConfig,
     get_dialect,
     TranspilationResult,
     ValidationResult,
 )
-from databricks.labs.remorph.helpers import db_sql
-from databricks.labs.remorph.helpers.execution_time import timeit
-from databricks.labs.remorph.helpers.file_utils import (
+from src.databricks.labs.remorph.helpers import db_sql
+from src.databricks.labs.remorph.helpers.execution_time import timeit
+from src.databricks.labs.remorph.helpers.file_utils import (
     dir_walk,
     is_sql_file,
     make_dir,
     remove_bom,
 )
-from databricks.labs.remorph.helpers.morph_status import (
+from src.databricks.labs.remorph.helpers.morph_status import (
     MorphStatus,
     ParserError,
     ValidationError,
 )
-from databricks.labs.remorph.helpers.validation import Validator
-from databricks.labs.remorph.snow import lca_utils
-from databricks.labs.remorph.snow.sql_transpiler import SqlglotEngine
+from src.databricks.labs.remorph.helpers.validation import Validator
+from src.databricks.labs.remorph.snow import lca_utils
+from src.databricks.labs.remorph.snow.sql_transpiler import SqlglotEngine
 from databricks.sdk import WorkspaceClient
 
 # pylint: disable=unspecified-encoding

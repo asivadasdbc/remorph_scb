@@ -3,9 +3,9 @@ from dataclasses import dataclass
 
 from sqlglot.dialects.dialect import Dialect, Dialects, DialectType
 
-from databricks.labs.remorph.helpers.morph_status import ParserError
-from databricks.labs.remorph.reconcile.recon_config import Table
-from databricks.labs.remorph.snow import databricks, oracle, snowflake, presto
+from src.databricks.labs.remorph.helpers.morph_status import ParserError
+from src.databricks.labs.remorph.reconcile.recon_config import Table
+from src.databricks.labs.remorph.snow import databricks, oracle, snowflake, presto
 
 logger = logging.getLogger(__name__)
 

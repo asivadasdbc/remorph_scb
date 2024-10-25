@@ -1,6 +1,6 @@
-from databricks.sdk.core import with_user_agent_extra, with_product
+from databricks.sdk.config import with_user_agent_extra, with_product
 from databricks.labs.blueprint.logger import install_logger
-from databricks.labs.remorph.__about__ import __version__
+from src.databricks.labs.remorph.__about__ import __version__
 
 install_logger()
 

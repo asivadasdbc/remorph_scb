@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 
-from databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions
+from src.databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions
 
 
 class JDBCReaderMixin:

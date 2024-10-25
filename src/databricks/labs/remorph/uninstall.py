@@ -3,8 +3,8 @@ import logging
 from databricks.labs.blueprint.entrypoint import is_in_debug
 from databricks.sdk import WorkspaceClient
 
-from databricks.labs.remorph.__about__ import __version__
-from databricks.labs.remorph.contexts.application import ApplicationContext
+from src.databricks.labs.remorph.__about__ import __version__
+from src.databricks.labs.remorph.contexts.application import ApplicationContext
 
 logger = logging.getLogger("databricks.labs.remorph.install")
 

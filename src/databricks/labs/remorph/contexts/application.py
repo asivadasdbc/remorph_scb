@@ -12,13 +12,13 @@ from databricks.sdk.config import Config
 from databricks.sdk.errors import NotFound
 from databricks.sdk.service.iam import User
 
-from databricks.labs.remorph.config import MorphConfig, ReconcileConfig, RemorphConfigs
-from databricks.labs.remorph.deployment.configurator import ResourceConfigurator
-from databricks.labs.remorph.deployment.dashboard import DashboardDeployment
-from databricks.labs.remorph.deployment.installation import WorkspaceInstallation
-from databricks.labs.remorph.deployment.recon import TableDeployment, JobDeployment, ReconDeployment
-from databricks.labs.remorph.helpers import db_sql
-from databricks.labs.remorph.helpers.metastore import CatalogOperations
+from src.databricks.labs.remorph.config import MorphConfig, ReconcileConfig, RemorphConfigs
+from src.databricks.labs.remorph.deployment.configurator import ResourceConfigurator
+from src.databricks.labs.remorph.deployment.dashboard import DashboardDeployment
+from src.databricks.labs.remorph.deployment.installation import WorkspaceInstallation
+from src.databricks.labs.remorph.deployment.recon import TableDeployment, JobDeployment, ReconDeployment
+from src.databricks.labs.remorph.helpers import db_sql
+from src.databricks.labs.remorph.helpers.metastore import CatalogOperations
 
 logger = logging.getLogger(__name__)
 

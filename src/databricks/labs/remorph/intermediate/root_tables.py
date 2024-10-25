@@ -1,14 +1,14 @@
 import logging
 from pathlib import Path
 
-from databricks.labs.remorph.config import get_dialect
-from databricks.labs.remorph.helpers.file_utils import (
+from src.databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.helpers.file_utils import (
     get_sql_file,
     is_sql_file,
     read_file,
 )
-from databricks.labs.remorph.intermediate.dag import DAG
-from databricks.labs.remorph.intermediate.engine_adapter import EngineAdapter
+from src.databricks.labs.remorph.intermediate.dag import DAG
+from src.databricks.labs.remorph.intermediate.engine_adapter import EngineAdapter
 
 logger = logging.getLogger(__name__)
 

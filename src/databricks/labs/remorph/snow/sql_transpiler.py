@@ -3,9 +3,9 @@ from sqlglot.dialects.dialect import Dialect
 from sqlglot.errors import ErrorLevel, ParseError, TokenError, UnsupportedError
 from sqlglot.expressions import Expression
 
-from databricks.labs.remorph.config import TranspilationResult
-from databricks.labs.remorph.helpers.file_utils import refactor_hexadecimal_chars
-from databricks.labs.remorph.helpers.morph_status import ParserError
+from src.databricks.labs.remorph.config import TranspilationResult
+from src.databricks.labs.remorph.helpers.file_utils import refactor_hexadecimal_chars
+from src.databricks.labs.remorph.helpers.morph_status import ParserError
 
 
 class SqlglotEngine:

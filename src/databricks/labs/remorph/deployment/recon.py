@@ -9,10 +9,10 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import InvalidParameterValue, NotFound
 
 import databricks.labs.remorph.resources
-from databricks.labs.remorph.config import ReconcileConfig
-from databricks.labs.remorph.deployment.dashboard import DashboardDeployment
-from databricks.labs.remorph.deployment.job import JobDeployment
-from databricks.labs.remorph.deployment.table import TableDeployment
+from src.databricks.labs.remorph.config import ReconcileConfig
+from src.databricks.labs.remorph.deployment.dashboard import DashboardDeployment
+from src.databricks.labs.remorph.deployment.job import JobDeployment
+from src.databricks.labs.remorph.deployment.table import TableDeployment
 
 logger = logging.getLogger(__name__)
 

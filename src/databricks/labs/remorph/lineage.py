@@ -2,8 +2,8 @@ import datetime
 import logging
 from pathlib import Path
 
-from databricks.labs.remorph.intermediate.dag import DAG
-from databricks.labs.remorph.intermediate.root_tables import RootTableIdentifier
+from src.databricks.labs.remorph.intermediate.dag import DAG
+from src.databricks.labs.remorph.intermediate.root_tables import RootTableIdentifier
 
 logger = logging.getLogger(__name__)
 

@@ -3,11 +3,11 @@ from functools import reduce
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, expr, lit
 
-from databricks.labs.remorph.reconcile.exception import ColumnMismatchException
-from databricks.labs.remorph.reconcile.recon_capture import (
+from src.databricks.labs.remorph.reconcile.exception import ColumnMismatchException
+from src.databricks.labs.remorph.reconcile.recon_capture import (
     ReconIntermediatePersist,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     DataReconcileOutput,
     MismatchOutput,
     AggregateRule,

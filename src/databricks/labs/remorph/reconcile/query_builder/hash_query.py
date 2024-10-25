@@ -3,15 +3,15 @@ import logging
 import sqlglot.expressions as exp
 from sqlglot import Dialect
 
-from databricks.labs.remorph.reconcile.query_builder.base import QueryBuilder
-from databricks.labs.remorph.reconcile.query_builder.expression_generator import (
+from src.databricks.labs.remorph.reconcile.query_builder.base import QueryBuilder
+from src.databricks.labs.remorph.reconcile.query_builder.expression_generator import (
     build_column,
     concat,
     get_hash_transform,
     lower,
     transform_expression,
 )
-from databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.config import get_dialect
 
 logger = logging.getLogger(__name__)
 

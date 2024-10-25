@@ -8,8 +8,8 @@ from sqlglot.errors import ErrorLevel, ParseError, TokenError, UnsupportedError
 from sqlglot.expressions import Expression, Select
 from sqlglot.optimizer.scope import Scope, build_scope
 
-from databricks.labs.remorph.helpers.morph_status import ValidationError
-from databricks.labs.remorph.snow.local_expression import AliasInfo
+from src.databricks.labs.remorph.helpers.morph_status import ValidationError
+from src.databricks.labs.remorph.snow.local_expression import AliasInfo
 
 logger = logging.getLogger(__name__)
 

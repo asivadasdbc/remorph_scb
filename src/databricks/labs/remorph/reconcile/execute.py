@@ -8,42 +8,42 @@ from pyspark.errors import PySparkException
 from pyspark.sql import DataFrame, SparkSession
 from sqlglot import Dialect
 
-from databricks.labs.remorph.config import (
+from src.databricks.labs.remorph.config import (
     DatabaseConfig,
     TableRecon,
     get_dialect,
     ReconcileConfig,
     ReconcileMetadataConfig,
 )
-from databricks.labs.remorph.reconcile.compare import (
+from src.databricks.labs.remorph.reconcile.compare import (
     capture_mismatch_data_and_columns,
     reconcile_data,
     join_aggregate_data,
     reconcile_agg_data_per_rule,
 )
-from databricks.labs.remorph.reconcile.connectors.data_source import DataSource
-from databricks.labs.remorph.reconcile.connectors.source_adapter import create_adapter
-from databricks.labs.remorph.reconcile.exception import (
+from src.databricks.labs.remorph.reconcile.connectors.data_source import DataSource
+from src.databricks.labs.remorph.reconcile.connectors.source_adapter import create_adapter
+from src.databricks.labs.remorph.reconcile.exception import (
     DataSourceRuntimeException,
     InvalidInputException,
     ReconciliationException,
 )
-from databricks.labs.remorph.reconcile.query_builder.aggregate_query import AggregateQueryBuilder
-from databricks.labs.remorph.reconcile.query_builder.count_query import CountQueryBuilder
-from databricks.labs.remorph.reconcile.query_builder.hash_query import HashQueryBuilder
-from databricks.labs.remorph.reconcile.query_builder.sampling_query import (
+from src.databricks.labs.remorph.reconcile.query_builder.aggregate_query import AggregateQueryBuilder
+from src.databricks.labs.remorph.reconcile.query_builder.count_query import CountQueryBuilder
+from src.databricks.labs.remorph.reconcile.query_builder.hash_query import HashQueryBuilder
+from src.databricks.labs.remorph.reconcile.query_builder.sampling_query import (
     SamplingQueryBuilder,
 )
-from databricks.labs.remorph.reconcile.query_builder.threshold_query import (
+from src.databricks.labs.remorph.reconcile.query_builder.threshold_query import (
     ThresholdQueryBuilder,
 )
-from databricks.labs.remorph.reconcile.recon_capture import (
+from src.databricks.labs.remorph.reconcile.recon_capture import (
     ReconCapture,
     generate_final_reconcile_output,
     ReconIntermediatePersist,
     generate_final_reconcile_aggregate_output,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     DataReconcileOutput,
     ReconcileOutput,
     ReconcileProcessDuration,
@@ -55,8 +55,8 @@ from databricks.labs.remorph.reconcile.recon_config import (
     AggregateQueryOutput,
     AggregateQueryRules,
 )
-from databricks.labs.remorph.reconcile.schema_compare import SchemaCompare
-from databricks.labs.remorph.transpiler.execute import verify_workspace_client
+from src.databricks.labs.remorph.reconcile.schema_compare import SchemaCompare
+from src.databricks.labs.remorph.transpiler.execute import verify_workspace_client
 from databricks.sdk import WorkspaceClient
 from databricks.labs.blueprint.installation import Installation
 from databricks.connect import DatabricksSession

@@ -6,10 +6,10 @@ from pyspark.errors import PySparkException
 from pyspark.sql import DataFrame, DataFrameReader, SparkSession
 from sqlglot import Dialect
 
-from databricks.labs.remorph.reconcile.connectors.data_source import DataSource
-from databricks.labs.remorph.reconcile.connectors.jdbc_reader import JDBCReaderMixin
-from databricks.labs.remorph.reconcile.connectors.secrets import SecretsMixin
-from databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions, Schema
+from src.databricks.labs.remorph.reconcile.connectors.data_source import DataSource
+from src.databricks.labs.remorph.reconcile.connectors.jdbc_reader import JDBCReaderMixin
+from src.databricks.labs.remorph.reconcile.connectors.secrets import SecretsMixin
+from src.databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions, Schema
 from databricks.sdk import WorkspaceClient
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from sqlglot.dialects.dialect import Dialect
 
-from databricks.labs.remorph.snow.sql_transpiler import SqlglotEngine
+from src.databricks.labs.remorph.snow.sql_transpiler import SqlglotEngine
 
 logger = logging.getLogger(__name__)
 

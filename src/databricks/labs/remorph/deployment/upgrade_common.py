@@ -6,7 +6,7 @@ import databricks.labs.remorph.resources
 
 from databricks.labs.blueprint.tui import Prompts
 from databricks.sdk import WorkspaceClient
-from databricks.labs.remorph.helpers import db_sql
+from src.databricks.labs.remorph.helpers import db_sql
 
 logger = logging.getLogger(__name__)
 
