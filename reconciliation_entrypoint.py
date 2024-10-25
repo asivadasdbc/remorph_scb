@@ -7,12 +7,18 @@ dbutils.library.restartPython()
 
 # COMMAND ----------
 
+import logging
+logging.getLogger("databricks.labs.remorph").setLevel(logging.INFO)
+
+# COMMAND ----------
+
 dbutils.widgets.text("table_name","scbucudpdev.dldev_curated_ci_db.atm_card_info_vw")
 dbutils.widgets.text("layer_name","ingestion")
 dbutils.widgets.text("sqlServer","scbudpseaasq001dev")
 dbutils.widgets.text("sqlDatabase","scbudpseaasqdb001dev")
 dbutils.widgets.text("sqlUser","udpdip0004@scbcorp.onmicrosoft.com")
 dbutils.widgets.text("sqlPassword","UDPDIP@scb2024#")
+dbutils.widgets.text("metastore_catalog",'scbucudpdev')
 dbutils.widgets.text("metastore_schema",'reconcile')
 dbutils.widgets.text("metastore_volume","reconcile_volume")
 
@@ -24,13 +30,14 @@ sqlServer = dbutils.widgets.get("sqlServer")
 sqlDatabase = dbutils.widgets.get("sqlDatabase")
 sqlUser = dbutils.widgets.get("sqlUser")
 sqlPassword = dbutils.widgets.get("sqlPassword")
+metastore_catalog = dbutils.widgets.get("metastore_catalog")
 metastore_schema = dbutils.widgets.get("metastore_schema")
 metastore_volume = dbutils.widgets.get("metastore_volume")
 
 # COMMAND ----------
 
 scope_name="scbudpseaakv001dev"
-storage_account="scbdipseasta008stddev"
+storage_account="scbdipseasta003stddev"
 
 # COMMAND ----------
 
@@ -64,11 +71,11 @@ reconcile_process = SCB_Reconcile(table=table_name,
                                   sqlDatabase=sqlDatabase,
                                   sqlUser=sqlUser,
                                   sqlPassword=sqlPassword,
-                                  metadata_catalog = "scbudpdev",
+                                  metadata_catalog = metastore_catalog,
                                   metadata_schema = metastore_schema,
                                   metadata_volume = metastore_volume,
                                   spark=spark)
-reconcile_process.get_table_schema()
+data_exec_required, agg_recon_id, data_recon_columns = reconcile_process.execute_aggregate_recons([],[],"row")
 # /Workspace/Users/ajai.sivadas@databricks.com/remorph_scb/src/databricks/labs/remorph/__init__.py
 
 # COMMAND ----------

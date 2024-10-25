@@ -4,10 +4,11 @@ from pyspark.dbutils import DBUtils
 
 from typing import List
 
+from reconciliation_entrypoint import metastore_schema
 from src.databricks.labs.remorph.config import DatabaseConfig, ReconcileMetadataConfig, ReconcileConfig, TableRecon
 from src.databricks.labs.remorph.reconcile.datatype_reconciliation import DataType_Recon
 from src.databricks.labs.remorph.reconcile.execute import reconcile_aggregates
-from src.databricks.labs.remorph.reconcile.recon_config import Table
+from src.databricks.labs.remorph.reconcile.recon_config import Table, ReconcileOutput, ReconcileTableOutput
 
 import re
 
@@ -59,11 +60,13 @@ class SCB_Reconcile():
 
         table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
         tbl_nm_matches = re.findall(table_name_pattern,self.table)
-        if len(tbl_nm_matches) == 0:
+        if len(tbl_nm_matches[0]) != 3:
             raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
         else:
-            dbx_catalog = tbl_nm_matches[0]
-            dbx_schema_table = tbl_nm_matches[1]+ "." + tbl_nm_matches[2]
+            dbx_catalog = tbl_nm_matches[0][0]
+            dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
+
+
 
         return dbx_catalog,dbx_schema_table
 
@@ -128,8 +131,8 @@ class SCB_Reconcile():
         recon_agg_helper = DataType_Recon()
         input_columns_mapping = self.get_table_schema(exclusion_columns)
         recon_aggs, recon_trnsfrms = recon_agg_helper.get_recon_objects(input_columns_mapping,group_by_columns)
-        table = Table(source_name=f"hive_metastore.{self.dbx_schema_table}",
-                      target_name=self.table,
+        table = Table(source_name=self.dbx_schema_table.split('.')[1],
+                      target_name=self.dbx_schema_table.split('.')[1],
                       aggregates = recon_aggs,
                       transformations=recon_trnsfrms)
 
@@ -144,14 +147,32 @@ class SCB_Reconcile():
         )
 
         try:
-            exec_recon = reconcile_aggregates(
+            exec_recon:ReconcileOutput = reconcile_aggregates(
             ws = self.wrkspc_client,
             spark = self.spark,
             table_recon = table_recon,
             reconcile_config = recon_config
             )
 
-            display(exec_recon)
+            data_exec_required = False
+
+            exec_recon_id:str = exec_recon.recon_id
+            exec_recon_results: list[ReconcileTableOutput] = exec_recon.results
+
+            if len(exec_recon_results) != 0:
+                data_exec_required = True
+                failed_columns = self.spark.sql(f"""Select distinct rule_info.agg_column 
+                from {self.metastore_catalog}.{self.metastore_schema}.aggregate_rules 
+                where rule_id in (
+                Select rule_id 
+                from {self.metastore_catalog}.{self.metastore_schema}.aggregate_details
+                 where recon_table_id in (
+                 Select recon_table_id 
+                 from {self.metastore_catalog}.{self.metastore_schema}.main where recon_id = '{exec_recon_id}' ))""")
+
+                failed_columns_list = list(failed_columns.toPandas()['agg_column'])
+
+            return data_exec_required, exec_recon_id,failed_columns_list
 
         except Exception as ex:
-            display(exec_recon.recon_id)
+            display(str(ex))
