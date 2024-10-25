@@ -1,10 +1,10 @@
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType
 
-from databricks.labs.remorph.config import get_dialect
-from databricks.labs.remorph.reconcile.query_builder.sampling_query import (
+from src.databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.reconcile.query_builder.sampling_query import (
     SamplingQueryBuilder,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     ColumnMapping,
     Filters,
     Schema,

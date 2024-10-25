@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from databricks.labs.blueprint.tui import MockPrompts
-from databricks.labs.remorph.helpers.recon_config_utils import ReconConfigPrompts
+from src.databricks.labs.remorph.helpers.recon_config_utils import ReconConfigPrompts
 from databricks.sdk.errors.platform import ResourceDoesNotExist
 from databricks.sdk.service.workspace import SecretScope
 

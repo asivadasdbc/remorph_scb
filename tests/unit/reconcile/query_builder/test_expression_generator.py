@@ -3,8 +3,8 @@ from sqlglot import expressions as exp
 from sqlglot import parse_one
 from sqlglot.expressions import Column
 
-from databricks.labs.remorph.config import get_dialect
-from databricks.labs.remorph.reconcile.query_builder.expression_generator import (
+from src.databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.reconcile.query_builder.expression_generator import (
     array_sort,
     array_to_string,
     build_between,

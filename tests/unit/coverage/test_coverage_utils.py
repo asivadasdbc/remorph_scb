@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 import pytz
 
-from databricks.labs.remorph.coverage.commons import (
+from src.databricks.labs.remorph.coverage.commons import (
     ReportEntry,
     collect_transpilation_stats,
     get_current_commit_hash,
@@ -17,8 +17,8 @@ from databricks.labs.remorph.coverage.commons import (
     get_supported_sql_files,
     write_json_line,
 )
-from databricks.labs.remorph.snow.databricks import Databricks
-from databricks.labs.remorph.snow.snowflake import Snow
+from src.databricks.labs.remorph.snow.databricks import Databricks
+from src.databricks.labs.remorph.snow.snowflake import Snow
 
 
 def test_get_supported_sql_files(tmp_path):

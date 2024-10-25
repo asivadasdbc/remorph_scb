@@ -5,15 +5,15 @@ from databricks.labs.blueprint.installation import MockInstallation
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import iam
 from databricks.labs.blueprint.tui import MockPrompts
-from databricks.labs.remorph.config import RemorphConfigs, ReconcileConfig, DatabaseConfig, ReconcileMetadataConfig
-from databricks.labs.remorph.contexts.application import ApplicationContext
-from databricks.labs.remorph.deployment.configurator import ResourceConfigurator
-from databricks.labs.remorph.deployment.installation import WorkspaceInstallation
-from databricks.labs.remorph.install import WorkspaceInstaller, MODULES
-from databricks.labs.remorph.config import MorphConfig
+from src.databricks.labs.remorph.config import RemorphConfigs, ReconcileConfig, DatabaseConfig, ReconcileMetadataConfig
+from src.databricks.labs.remorph.contexts.application import ApplicationContext
+from src.databricks.labs.remorph.deployment.configurator import ResourceConfigurator
+from src.databricks.labs.remorph.deployment.installation import WorkspaceInstallation
+from src.databricks.labs.remorph.install import WorkspaceInstaller, MODULES
+from src.databricks.labs.remorph.config import MorphConfig
 from databricks.labs.blueprint.wheels import ProductInfo, WheelsV2
-from databricks.labs.remorph.config import SQLGLOT_DIALECTS
-from databricks.labs.remorph.reconcile.constants import ReconSourceType, ReconReportType
+from src.databricks.labs.remorph.config import SQLGLOT_DIALECTS
+from src.databricks.labs.remorph.reconcile.constants import ReconSourceType, ReconReportType
 
 RECONCILE_DATA_SOURCES = sorted([source_type.value for source_type in ReconSourceType])
 RECONCILE_REPORT_TYPES = sorted([report_type.value for report_type in ReconReportType])

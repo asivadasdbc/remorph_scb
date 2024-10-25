@@ -6,9 +6,9 @@ import pytest
 import yaml
 
 from databricks.labs.blueprint.tui import MockPrompts
-from databricks.labs.remorph import cli
-from databricks.labs.remorph.config import MorphConfig
-from databricks.labs.remorph.helpers.recon_config_utils import ReconConfigPrompts
+from src.databricks.labs.remorph import cli
+from src.databricks.labs.remorph.config import MorphConfig
+from src.databricks.labs.remorph.helpers.recon_config_utils import ReconConfigPrompts
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound
 from databricks.labs.blueprint.installation import MockInstallation

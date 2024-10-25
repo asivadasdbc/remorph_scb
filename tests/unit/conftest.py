@@ -21,8 +21,8 @@ from sqlglot.errors import SqlglotError, ParseError
 from sqlglot import parse_one as sqlglot_parse_one
 from sqlglot import transpile
 
-from databricks.labs.remorph.config import SQLGLOT_DIALECTS, MorphConfig
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.config import SQLGLOT_DIALECTS, MorphConfig
+from src.databricks.labs.remorph.reconcile.recon_config import (
     ColumnMapping,
     Filters,
     JdbcReaderOptions,
@@ -32,8 +32,8 @@ from databricks.labs.remorph.reconcile.recon_config import (
     Transformation,
     TableThresholds,
 )
-from databricks.labs.remorph.snow.databricks import Databricks
-from databricks.labs.remorph.snow.snowflake import Snow
+from src.databricks.labs.remorph.snow.databricks import Databricks
+from src.databricks.labs.remorph.snow.snowflake import Snow
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import Config
 from databricks.sdk.service import iam

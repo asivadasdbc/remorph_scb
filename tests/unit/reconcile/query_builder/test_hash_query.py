@@ -1,6 +1,6 @@
-from databricks.labs.remorph.config import get_dialect
-from databricks.labs.remorph.reconcile.query_builder.hash_query import HashQueryBuilder
-from databricks.labs.remorph.reconcile.recon_config import Filters, ColumnMapping, Transformation
+from src.databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.reconcile.query_builder.hash_query import HashQueryBuilder
+from src.databricks.labs.remorph.reconcile.recon_config import Filters, ColumnMapping, Transformation
 
 
 def test_hash_query_builder_for_snowflake_src(table_conf_with_opts, table_schema):

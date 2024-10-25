@@ -1,13 +1,5 @@
 # Databricks notebook source
-# MAGIC %pip install --upgrade databricks-sdk==0.36.0
-
-# COMMAND ----------
-
-# MAGIC %pip install databricks-labs-blueprint
-
-# COMMAND ----------
-
-# MAGIC %pip install sqlglot
+# MAGIC %pip install -r requirements.txt
 
 # COMMAND ----------
 

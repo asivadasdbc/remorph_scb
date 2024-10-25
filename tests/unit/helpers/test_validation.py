@@ -1,6 +1,6 @@
 from databricks.labs.lsql.backends import MockBackend
 from databricks.labs.lsql.core import Row
-from databricks.labs.remorph.helpers.validation import Validator
+from src.databricks.labs.remorph.helpers.validation import Validator
 
 
 def test_valid_query(morph_config):

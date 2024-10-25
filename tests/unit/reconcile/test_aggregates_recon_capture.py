@@ -3,16 +3,16 @@ from pathlib import Path
 
 from pyspark.sql import Row, SparkSession
 
-from databricks.labs.remorph.config import DatabaseConfig, get_dialect, ReconcileMetadataConfig
-from databricks.labs.remorph.reconcile.recon_capture import (
+from src.databricks.labs.remorph.config import DatabaseConfig, get_dialect, ReconcileMetadataConfig
+from src.databricks.labs.remorph.reconcile.recon_capture import (
     ReconCapture,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     ReconcileProcessDuration,
     Table,
     AggregateQueryOutput,
 )
-from databricks.labs.remorph.reconcile.recon_capture import generate_final_reconcile_aggregate_output
+from src.databricks.labs.remorph.reconcile.recon_capture import generate_final_reconcile_aggregate_output
 from .test_aggregates_reconcile import expected_reconcile_output_dict, expected_rule_output
 
 

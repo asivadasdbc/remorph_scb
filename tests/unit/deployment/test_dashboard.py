@@ -10,8 +10,8 @@ from databricks.sdk.errors import InvalidParameterValue, NotFound
 from databricks.sdk.service.dashboards import Dashboard
 from databricks.sdk.service.dashboards import LifecycleState
 
-from databricks.labs.remorph.config import ReconcileMetadataConfig, ReconcileConfig, DatabaseConfig
-from databricks.labs.remorph.deployment.dashboard import DashboardDeployment
+from src.databricks.labs.remorph.config import ReconcileMetadataConfig, ReconcileConfig, DatabaseConfig
+from src.databricks.labs.remorph.deployment.dashboard import DashboardDeployment
 
 
 def _get_dashboard_query(kwargs):

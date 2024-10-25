@@ -2,9 +2,9 @@ import pytest
 from pyspark import Row
 from pyspark.testing import assertDataFrameEqual
 
-from databricks.labs.remorph.reconcile.connectors.data_source import MockDataSource
-from databricks.labs.remorph.reconcile.exception import DataSourceRuntimeException
-from databricks.labs.remorph.reconcile.recon_config import Schema
+from src.databricks.labs.remorph.reconcile.connectors.data_source import MockDataSource
+from src.databricks.labs.remorph.reconcile.exception import DataSourceRuntimeException
+from src.databricks.labs.remorph.reconcile.recon_config import Schema
 
 catalog = "org"
 schema = "data"

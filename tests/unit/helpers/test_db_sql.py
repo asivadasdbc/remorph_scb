@@ -1,7 +1,7 @@
 from unittest.mock import patch, create_autospec
 
 import pytest
-from databricks.labs.remorph.helpers.db_sql import get_sql_backend
+from src.databricks.labs.remorph.helpers.db_sql import get_sql_backend
 from databricks.sdk import WorkspaceClient
 from databricks.labs.lsql.backends import StatementExecutionBackend
 

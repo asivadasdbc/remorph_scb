@@ -3,9 +3,9 @@ from unittest.mock import MagicMock, create_autospec
 
 import pytest
 
-from databricks.labs.remorph.config import get_dialect
-from databricks.labs.remorph.reconcile.connectors.databricks import DatabricksDataSource
-from databricks.labs.remorph.reconcile.exception import DataSourceRuntimeException
+from src.databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.reconcile.connectors.databricks import DatabricksDataSource
+from src.databricks.labs.remorph.reconcile.exception import DataSourceRuntimeException
 from databricks.sdk import WorkspaceClient
 
 

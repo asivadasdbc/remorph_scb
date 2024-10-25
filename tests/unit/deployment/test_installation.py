@@ -10,15 +10,15 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound
 from databricks.sdk.service import iam
 
-from databricks.labs.remorph.config import (
+from src.databricks.labs.remorph.config import (
     MorphConfig,
     RemorphConfigs,
     ReconcileConfig,
     DatabaseConfig,
     ReconcileMetadataConfig,
 )
-from databricks.labs.remorph.deployment.installation import WorkspaceInstallation
-from databricks.labs.remorph.deployment.recon import ReconDeployment
+from src.databricks.labs.remorph.deployment.installation import WorkspaceInstallation
+from src.databricks.labs.remorph.deployment.recon import ReconDeployment
 
 
 @pytest.fixture

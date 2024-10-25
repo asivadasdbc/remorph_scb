@@ -8,8 +8,8 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import InvalidParameterValue
 from databricks.sdk.service.jobs import Job
 
-from databricks.labs.remorph.config import RemorphConfigs, ReconcileConfig, DatabaseConfig, ReconcileMetadataConfig
-from databricks.labs.remorph.deployment.job import JobDeployment
+from src.databricks.labs.remorph.config import RemorphConfigs, ReconcileConfig, DatabaseConfig, ReconcileMetadataConfig
+from src.databricks.labs.remorph.deployment.job import JobDeployment
 
 
 @pytest.fixture

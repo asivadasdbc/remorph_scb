@@ -8,10 +8,10 @@ import pytest
 from databricks.connect import DatabricksSession
 from databricks.labs.lsql.backends import MockBackend
 from databricks.labs.lsql.core import Row
-from databricks.labs.remorph.config import MorphConfig, ValidationResult
-from databricks.labs.remorph.helpers.file_utils import make_dir
-from databricks.labs.remorph.helpers.validation import Validator
-from databricks.labs.remorph.transpiler.execute import (
+from src.databricks.labs.remorph.config import MorphConfig, ValidationResult
+from src.databricks.labs.remorph.helpers.file_utils import make_dir
+from src.databricks.labs.remorph.helpers.validation import Validator
+from src.databricks.labs.remorph.transpiler.execute import (
     morph,
     morph_column_exp,
     morph_sql,

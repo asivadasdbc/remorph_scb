@@ -9,17 +9,17 @@ import pytest
 from pyspark.testing import assertDataFrameEqual
 from pyspark.sql import Row
 
-from databricks.labs.remorph.config import DatabaseConfig, ReconcileMetadataConfig, get_dialect
-from databricks.labs.remorph.reconcile.connectors.data_source import MockDataSource
-from databricks.labs.remorph.reconcile.execute import Reconciliation, main
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.config import DatabaseConfig, ReconcileMetadataConfig, get_dialect
+from src.databricks.labs.remorph.reconcile.connectors.data_source import MockDataSource
+from src.databricks.labs.remorph.reconcile.execute import Reconciliation, main
+from src.databricks.labs.remorph.reconcile.recon_config import (
     Aggregate,
     AggregateQueryOutput,
     DataReconcileOutput,
     MismatchOutput,
     AggregateRule,
 )
-from databricks.labs.remorph.reconcile.schema_compare import SchemaCompare
+from src.databricks.labs.remorph.reconcile.schema_compare import SchemaCompare
 
 CATALOG = "org"
 SCHEMA = "data"

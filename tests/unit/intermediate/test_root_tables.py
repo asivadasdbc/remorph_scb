@@ -1,6 +1,6 @@
 import pytest
 
-from databricks.labs.remorph.intermediate.root_tables import RootTableIdentifier
+from src.databricks.labs.remorph.intermediate.root_tables import RootTableIdentifier
 
 
 @pytest.fixture(autouse=True)

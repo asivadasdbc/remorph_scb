@@ -2,9 +2,9 @@ from unittest.mock import patch
 from databricks.labs.lsql.backends import MockBackend
 from databricks.labs.blueprint.tui import MockPrompts
 from databricks.labs.blueprint.installation import MockInstallation
-from databricks.labs.remorph.contexts.application import ApplicationContext
+from src.databricks.labs.remorph.contexts.application import ApplicationContext
 
-from databricks.labs.remorph.deployment.upgrade_common import (
+from src.databricks.labs.remorph.deployment.upgrade_common import (
     replace_patterns,
     extract_columns_with_datatype,
     extract_column_name,

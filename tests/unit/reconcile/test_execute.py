@@ -8,28 +8,28 @@ from pyspark import Row
 from pyspark.errors import PySparkException
 from pyspark.testing import assertDataFrameEqual
 
-from databricks.labs.remorph.config import (
+from src.databricks.labs.remorph.config import (
     DatabaseConfig,
     TableRecon,
     get_dialect,
     ReconcileMetadataConfig,
     ReconcileConfig,
 )
-from databricks.labs.remorph.reconcile.connectors.data_source import MockDataSource
-from databricks.labs.remorph.reconcile.connectors.databricks import DatabricksDataSource
-from databricks.labs.remorph.reconcile.connectors.snowflake import SnowflakeDataSource
-from databricks.labs.remorph.reconcile.exception import (
+from src.databricks.labs.remorph.reconcile.connectors.data_source import MockDataSource
+from src.databricks.labs.remorph.reconcile.connectors.databricks import DatabricksDataSource
+from src.databricks.labs.remorph.reconcile.connectors.snowflake import SnowflakeDataSource
+from src.databricks.labs.remorph.reconcile.exception import (
     DataSourceRuntimeException,
     InvalidInputException,
     ReconciliationException,
 )
-from databricks.labs.remorph.reconcile.execute import (
+from src.databricks.labs.remorph.reconcile.execute import (
     Reconciliation,
     initialise_data_source,
     recon,
     generate_volume_path,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     DataReconcileOutput,
     MismatchOutput,
     ThresholdOutput,
@@ -37,7 +37,7 @@ from databricks.labs.remorph.reconcile.recon_config import (
     ReconcileTableOutput,
     StatusOutput,
 )
-from databricks.labs.remorph.reconcile.schema_compare import SchemaCompare
+from src.databricks.labs.remorph.reconcile.schema_compare import SchemaCompare
 
 CATALOG = "org"
 SCHEMA = "data"

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from databricks.labs.remorph.helpers.file_utils import (
+from src.databricks.labs.remorph.helpers.file_utils import (
     dir_walk,
     is_sql_file,
     make_dir,

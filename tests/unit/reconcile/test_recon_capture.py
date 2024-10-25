@@ -7,14 +7,14 @@ from pyspark.sql import Row, SparkSession
 from pyspark.sql.functions import countDistinct
 from pyspark.sql.types import BooleanType, StringType, StructField, StructType
 
-from databricks.labs.remorph.config import DatabaseConfig, get_dialect, ReconcileMetadataConfig
-from databricks.labs.remorph.reconcile.exception import WriteToTableException, ReadAndWriteWithVolumeException
-from databricks.labs.remorph.reconcile.recon_capture import (
+from src.databricks.labs.remorph.config import DatabaseConfig, get_dialect, ReconcileMetadataConfig
+from src.databricks.labs.remorph.reconcile.exception import WriteToTableException, ReadAndWriteWithVolumeException
+from src.databricks.labs.remorph.reconcile.recon_capture import (
     ReconCapture,
     generate_final_reconcile_output,
     ReconIntermediatePersist,
 )
-from databricks.labs.remorph.reconcile.recon_config import (
+from src.databricks.labs.remorph.reconcile.recon_config import (
     DataReconcileOutput,
     MismatchOutput,
     ReconcileOutput,

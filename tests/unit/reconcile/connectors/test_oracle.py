@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, create_autospec
 
 import pytest
 
-from databricks.labs.remorph.config import get_dialect
-from databricks.labs.remorph.reconcile.connectors.oracle import OracleDataSource
-from databricks.labs.remorph.reconcile.exception import DataSourceRuntimeException
-from databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions, Table
+from src.databricks.labs.remorph.config import get_dialect
+from src.databricks.labs.remorph.reconcile.connectors.oracle import OracleDataSource
+from src.databricks.labs.remorph.reconcile.exception import DataSourceRuntimeException
+from src.databricks.labs.remorph.reconcile.recon_config import JdbcReaderOptions, Table
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.workspace import GetSecretResponse
 

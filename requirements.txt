@@ -49,3 +49,4 @@ sqlglot==25.8.1
     #   databricks-labs-remorph (pyproject.toml)
 urllib3==2.2.3
     # via requests
+pytest
