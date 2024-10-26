@@ -12,7 +12,7 @@ logging.getLogger("databricks.labs.remorph").setLevel(logging.INFO)
 
 # COMMAND ----------
 
-dbutils.widgets.text("table_name","scbucudpdev.dldev_curated_ci_db.atm_card_info_vw")
+dbutils.widgets.text("table_name","scbucudpdev.dldev_persist_st_db.st_fc_strtem01_1_0")
 dbutils.widgets.text("layer_name","ingestion")
 dbutils.widgets.text("sqlServer","scbudpseaasq001dev")
 dbutils.widgets.text("sqlDatabase","scbudpseaasqdb001dev")
@@ -75,7 +75,12 @@ reconcile_process = SCB_Reconcile(table=table_name,
                                   metadata_schema = metastore_schema,
                                   metadata_volume = metastore_volume,
                                   spark=spark)
-data_exec_required, agg_recon_id, data_recon_columns = reconcile_process.execute_aggregate_recons([],[],"row")
+data_reconcile_required,agg_recon_id,failed_recon_cols = reconcile_process.execute_aggregate_recons(
+    group_by_columns = [],
+    exclusion_columns = [],
+    report_type = "row")
+if data_reconcile_required:
+    reconcile_process.execute_data_recon()
 # /Workspace/Users/ajai.sivadas@databricks.com/remorph_scb/src/databricks/labs/remorph/__init__.py
 
 # COMMAND ----------

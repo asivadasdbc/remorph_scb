@@ -122,7 +122,7 @@ class DataType_Recon():
         return  aggregates,transforms
 
 
-    def get_recon_objects(self,input_columns:Dict,group_by_columns:List[str]):
+    def get_agg_recon_table_objects(self,input_columns:Dict,group_by_columns:List[str]):
         aggregations = transformations = []
         for column_name in input_columns:
             datatype = input_columns[column_name]
