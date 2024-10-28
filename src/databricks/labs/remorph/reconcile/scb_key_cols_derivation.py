@@ -29,11 +29,11 @@ class SCB_Key_Cols_Derivation():
         return configuration_data
 
     def get_final_key_cols(self):
-        configured_key_cols = self.query
+        configured_key_cols = self.query()
         if configured_key_cols.isEmpty():
             configured_key_cols_str = ''
         else:
-            configured_key_cols_str = configured_key_cols.collec()[0].column_nm_key
+            configured_key_cols_str = configured_key_cols.collect()[0].column_nm_key
 
         if '[ALL_COLUMNS]' in configured_key_cols_str:
             key_cols_list = ["*"]

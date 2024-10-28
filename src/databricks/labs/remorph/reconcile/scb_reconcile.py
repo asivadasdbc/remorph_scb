@@ -66,8 +66,11 @@ class SCB_Reconcile():
 
         self.dbutils = DBUtils(self.spark)
 
-        self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
-        self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
+        # self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
+        # self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
+
+        self.sqlUser = "udpdip0004@scbcorp.onmicrosoft.com"
+        self.sqlPassword = "UDPDIP@scb2024#"
 
         self.metadata_catalog = self.config["env"][environment]["metadata_catalog"]
         self.metadata_schema = self.config["env"][environment]["metadata_schema"]
@@ -150,7 +153,7 @@ class SCB_Reconcile():
                 - Dict of Column and its datatype. For e.g. {"cust_id":"int"}
         """
 
-        schema = self.spark.read.table(self.table).schema
+        schema = self.spark.read.table(self.target_table).schema
         schema_column_data_types = {field.name: field.dataType.simpleString()
                                     for field in schema.fields if field.name not in self.exclusion_cols}
         return schema_column_data_types
@@ -197,7 +200,7 @@ class SCB_Reconcile():
             - Dict of Columns containing the columns to be tested against and Key Columns
 
         """
-        schema = self.spark.read.table(self.table).schema
+        schema = self.spark.read.table(self.target_table).schema
         inclusion_columns  = []
 
         if len(self.key_cols) != 0:

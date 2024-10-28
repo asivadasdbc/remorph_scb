@@ -41,13 +41,11 @@ reconcile_process = SCB_Reconcile(environment = environment,
 data_reconcile_required,agg_recon_id,failed_recon_cols = reconcile_process.execute_aggregate_recons(report_type = "row")
 print(f"*****Succesfully Aggregation Reconciliation Completed with Id: {agg_recon_id}********")
 if data_reconcile_required:
-    print(f"""*****Aggregation Reconciliation failed, Id: {agg_recon_id}, for columns {failed_recon_cols}, please 
-    check the metadata table for details********""")
+    print(f"""*****Aggregation Reconciliation failed, Id: {agg_recon_id}, for columns {failed_recon_cols}, please check the metadata table for details********""")
 
     data_reconcile_passed,data_recon_id,_ = reconcile_process.execute_data_recon(recon_columns=failed_recon_cols)
     if not data_reconcile_passed:
-        print(f"""*****Aggregation Reconciliation failed, Id: {data_recon_id}, please check the 
-        metadata table for details********""")
+        print(f"""*****Aggregation Reconciliation failed, Id: {data_recon_id}, please check the metadata table for details********""")
 
 # COMMAND ----------
 

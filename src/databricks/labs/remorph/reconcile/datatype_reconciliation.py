@@ -6,6 +6,7 @@ from typing import Dict, List
 
 class DataType_Recon():
     def __init__(self):
+        self.string_data_type_matcher = r"(?i)\b(?:string)"
         self.numeric_data_type_matcher = r"(?i)\b(?:decimal|int|float|timestamp)"
         self.date_data_type_matcher = r"(?i)\b(?:date)"
         self.bool_data_type_matcher = r"(?i)\b(?:boolean)"
@@ -126,7 +127,7 @@ class DataType_Recon():
         aggregations = transformations = []
         for column_name in input_columns:
             datatype = input_columns[column_name]
-            if datatype == "string":
+            if len(re.findall(self.string_data_type_matcher, datatype)) != 0:
                 dt_type_aggregations , dt_type_transformations = self.agg_str_type_test(column_name,group_by_columns)
                 aggregations = aggregations + dt_type_aggregations
                 transformations =  transformations + dt_type_transformations
