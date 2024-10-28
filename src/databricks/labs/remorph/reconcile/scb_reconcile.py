@@ -8,103 +8,168 @@ from src.databricks.labs.remorph.config import DatabaseConfig, ReconcileMetadata
 from src.databricks.labs.remorph.reconcile.datatype_reconciliation import DataType_Recon
 from src.databricks.labs.remorph.reconcile.exception import ReconciliationException
 from src.databricks.labs.remorph.reconcile.execute import reconcile_aggregates, recon
-from src.databricks.labs.remorph.reconcile.recon_config import Table, ReconcileTableOutput
+from src.databricks.labs.remorph.reconcile.recon_config import Table, ReconcileTableOutput, Filters
 
 import re
+import yaml
 
-from tests.unit.reconcile.connectors.test_mock_data_source import catalog
+from src.databricks.labs.remorph.reconcile.scb_key_cols_derivation import SCB_Key_Cols_Derivation
+
+
+def table_name_split(table_name):
+
+    table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
+    tbl_nm_matches = re.findall(table_name_pattern,table_name)
+    if len(tbl_nm_matches[0]) != 3:
+        raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+    else:
+        dbx_catalog = tbl_nm_matches[0][0]
+        dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
+
+
+
+    return dbx_catalog,dbx_schema_table
 
 
 class SCB_Reconcile():
 
-    def __init__(self,table:str,
+    def __init__(self,
+                 environment:str,
+                 source_table:str,
+                 target_table:str,
                  layer:str,
-                 sqlServer:str,
-                 sqlDatabase:str,
-                 sqlUser:str,
-                 sqlPassword:str,
-                 metadata_catalog:str,
-                 metadata_schema:str,
-                 metadata_volume:str,
+                 additional_excl_cols_list:List[str],
+                 additional_key_cols_list:List[str],
+                 data_comparison_filter:str,
                  spark:SparkSession):
 
-        self.table = table
+        # Setting Received Parameters
+        self.source_table = source_table
+        self.target_table = target_table
         self.layer = layer
-        self.metadata_catalog = metadata_catalog
-        self.metadata_schema = metadata_schema
-        self.metadata_volume = metadata_volume
+        self.additional_excl_cols_list = additional_excl_cols_list
+        self.additional_key_cols_list = additional_key_cols_list
+        self.data_comparison_filter = data_comparison_filter
 
         self.spark = spark
-        self.sqlServer = sqlServer
-        self.sqlDatabase = sqlDatabase
-        self.sqlUser = sqlUser
-        self.sqlPassword = sqlPassword
 
-        self.configuration_table_mapping = {
-        "ingestion": "p1dcfudp.UDP_JOB",
-        "transformation": "p1dcfudp.UDP_JOB_TRANSFORM_CHK_UNQ"
-        }
-        self.sqlConnectionString = f"""jdbc:sqlserver://{self.sqlServer}.database.windows.net:1433;database={self.sqlDatabase};user={self.sqlUser};password={self.sqlPassword};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;authentication=ActiveDirectoryPassword"""
+        #Reading and capturing Environment Level Parameters
+        with open("./env_config.yaml","r") as config_data:
+            self.config = yaml.safe_load(config_data)
+
+        self.sqlServer = self.config["env"][environment]["sql_server"]
+        self.sqlDatabase = self.config["env"][environment]["sql_database"]
+        self.sqlUserKey = self.config["env"][environment]["sql_username_key"]
+        self.sqlPasswordKey = self.config["env"][environment]["sql_password_key"]
+
+        self.secretScope = self.config["env"][environment]["secret_scope"]
+
         self.dbutils = DBUtils(self.spark)
 
-        self.dbx_catalog, self.dbx_schema_table = self.table_name_split()
+        self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
+        self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
 
+        self.metadata_catalog = self.config["env"][environment]["metadata_catalog"]
+        self.metadata_schema = self.config["env"][environment]["metadata_schema"]
+        self.metadata_volume = self.config["env"][environment]["metadata_volume"]
+
+        self.storage_accounts = self.config["env"][environment]["storage_accounts"]
+
+
+        self.sqlConnectionString = f"""jdbc:sqlserver://{self.sqlServer}.database.windows.net:1433;database={self.sqlDatabase};user={self.sqlUser};password={self.sqlPassword};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;authentication=ActiveDirectoryPassword"""
+
+
+
+        # Getting the Catalog and Schema.Table_Name from the received input
+        self.src_catalog, self.src_schema_table = table_name_split(self.source_table)
+        self.tgt_catalog, self.tgt_schema_table = table_name_split(self.target_table)
+
+        # Setting up Workspace Client for usage In Recon
         self.wrkspc_client = WorkspaceClient(
             product="reconcile",
             product_version="0.0.1"
         )
 
+        #Setting up Spark Configurations to resolve any ADLS Access Issues while fetching data for reconcile
+        self.storage_account_acces(self.storage_accounts)
 
-    def table_name_split(self):
 
-        table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
-        tbl_nm_matches = re.findall(table_name_pattern,self.table)
-        if len(tbl_nm_matches[0]) != 3:
-            raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+        #Getting the Key Columns based on configured values and additional provided as part of user input
+        self.key_cols_derivations = SCB_Key_Cols_Derivation(
+            target_table_name=self.tgt_schema_table.split(".")[1],
+            connection_string=self.sqlConnectionString,
+            additional_key_cols_list=self.additional_key_cols_list,
+            spark = self.spark
+        )
+
+        self.key_cols = self.key_cols_derivations.get_final_key_cols()
+
+        #Getting the Columns to be excluded from the Reconciliation
+        self.system_exclusion_columns = ['udp_row_md5', 'udp_key_md5', 'udp_job_id', 'udp_run_id', 'batch_uuid',
+                                         'data_load_ts']
+        if len(self.additional_excl_cols_list) != 0:
+            self.exclusion_cols = list(set(self.additional_excl_cols_list + self.system_exclusion_columns))
         else:
-            dbx_catalog = tbl_nm_matches[0][0]
-            dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
+            self.exclusion_cols = self.system_exclusion_columns
+
+    def get_scope_key_for_storage_name(self, storage_name):
+        """
+        Gets the scope key based on the scope name and storage name extracted from the location.
+        Input:
+            - scope_name: The scope name
+            - storage_name : The storage name extracted from the location path.
+        Output:
+            - scope_key : The scope key which contains the sas key.
+        """
+        return [v.key for v in self.dbutils.secrets.list(self.secretScope) if storage_name in v.key][0]
+
+    def storage_account_acces(self,storage_accounts):
+        """
+            Sets the Spark Configurations to resolve any ADLS Access Issues
+            Input:
+                - storage_accounts : List of storage accounts to fetch sas access key for from secrets
+            Output:
+                - None
+        """
+        for storage_account in storage_accounts:
+            scope_key = self.get_scope_key_for_storage_name(storage_account)
+            self.spark.conf.set(f"fs.azure.account.auth.type.{storage_account}.dfs.core.windows.net", "SAS")
+            self.spark.conf.set(f"fs.azure.sas.token.provider.type.{storage_account}.dfs.core.windows.net",
+                           "org.apache.hadoop.fs.azurebfs.sas.FixedSASTokenProvider")
+            self.spark.conf.set(f"fs.azure.sas.fixed.token.{storage_account}.dfs.core.windows.net",
+                           self.dbutils.secrets.get(scope=self.secretScope, key=scope_key))
 
 
 
-        return dbx_catalog,dbx_schema_table
-
-
-    def query(self,
-              configuration_table:str):
-
-        query_string = f"""Select * from {configuration_table}"""
-
-        configuration_data = self.spark.read\
-            .format("jdbc")\
-            .option("url",self.sqlConnectionString)\
-            .option("query",query_string)\
-            .load()
-
-        return configuration_data
-
-
-    def get_config(self):
-
-        config_data = self.query(self.configuration_table_mapping[self.layer.lower()])
-        return config_data
-
-    def get_table_schema(self,exclusion_columns:List[str]=[]):
+    def get_agg_table_schema(self):
+        """
+            To get a list of columns to run recon against excluding set framework columns and user provided exclusion
+            columns
+            Input: None
+            Output:
+                - Dict of Column and its datatype. For e.g. {"cust_id":"int"}
+        """
 
         schema = self.spark.read.table(self.table).schema
-        system_exclusion_columns = ['row_md5','batch_uuid']
-        exclusion_columns_final = list(set(exclusion_columns + system_exclusion_columns))
-
-        schema_column_data_types = {field.name: field.dataType.simpleString() for field in schema.fields if field.name not in exclusion_columns_final}
+        schema_column_data_types = {field.name: field.dataType.simpleString()
+                                    for field in schema.fields if field.name not in self.exclusion_cols}
         return schema_column_data_types
 
     def get_recon_config(self,report_type):
+        """
+            Returns Reconcile Config based on the Report Type Provided.
+            Input:
+                - Report Type
+            Output:
+                - Reconcile Config which has the Database Configuration and Reconcile Metadata Configuration updated
+                based on the Inputs provided.
+        """
 
         db_config = DatabaseConfig(
-            source_catalog="hive_metastore",
-            target_catalog=self.dbx_catalog,
-            target_schema=self.dbx_schema_table.split(".")[0],
-            source_schema=self.dbx_schema_table.split(".")[0]
+            source_catalog=self.src_catalog,
+            target_catalog=self.tgt_catalog,
+            target_schema=self.src_schema_table.split(".")[0],
+            source_schema=self.tgt_schema_table.split(".")[0]
         )
 
         metadata_config = ReconcileMetadataConfig(
@@ -123,9 +188,23 @@ class SCB_Reconcile():
 
         return recon_config
 
-    def data_recon_schema(self,key_columns:List[str],testing_columns:List[str]):
+    def data_recon_schema(self,testing_columns:List[str]):
+        """
+        Returns Schema for table to include only required columns and key columns for Data Recon
+        Input:
+            - List of Columns to be data reconciled against
+        Output:
+            - Dict of Columns containing the columns to be tested against and Key Columns
+
+        """
         schema = self.spark.read.table(self.table).schema
-        inclusion_columns = key_columns + testing_columns
+        inclusion_columns  = []
+
+        if len(self.key_cols) != 0:
+            if self.key_cols[0] == "*":
+                inclusion_columns = [field.name for field in schema.fields if field.name not in self.exclusion_cols]
+            else:
+                inclusion_columns = self.key_cols + testing_columns
 
         schema_column_data_types = {field.name: field.dataType.simpleString() for field in schema.fields if
                                     field.name in inclusion_columns}
@@ -142,8 +221,24 @@ class SCB_Reconcile():
                   recon_tbl_thresholds=None
                   ):
 
-        table = Table(source_name=self.dbx_schema_table.split('.')[1],
-                      target_name=self.dbx_schema_table.split('.')[1],
+        """
+        Return Table Object based on the received inputs for Reconciliation:
+        Inputs:
+            - Aggregations for Recon
+            - Join Columns for Aggregations
+            - Columns on which Reconciliation to be actioned against
+            - Columns to be dropped from Reconciliation
+            - Column Mapping for disparate Column names to be applied
+            - Transformation to be applied for Columns
+            - Filters to be applied against Source & Target for Reconciliation
+            - Thresholds for Columns to be applied for Reconciliation
+
+        Output:
+            Table Object to be utilized for Recon
+        """
+
+        table = Table(source_name=self.src_schema_table.split('.')[1],
+                      target_name=self.tgt_schema_table.split('.')[1],
                       aggregates=recon_aggs,
                       join_columns=recon_join_cols,
                       select_columns=recon_select_cols,
@@ -157,14 +252,23 @@ class SCB_Reconcile():
         return table
 
     def execute_data_recon(self,recon_columns:List[str],report_type="data"):
+        """
+            Process for executing Data Level Recon
+            Inputs:
+                Columns against which Recon is to be applied
+            Output:
+                Data Recon Pass Status as a Boolean Flag
+                Data Recon Id
+                Columns against which Recon failed
+        """
 
-        capture_key_columns = self.spark.sql(f"""Select a.key_columns
-        from scbucudpdev.reconcile.recon_config a
-        where a.tablename = '{self.table}'
-        and a.inserted_at = (select max(b.inserted_at)
-        from scbucudpdev.reconcile.recon_config b where b.tablename = a.tablename) """)
+        recon_join_cols = self.key_cols
 
-        recon_join_cols = capture_key_columns.collect()[0].key_columns
+        if self.data_comparison_filter != '':
+            recon_filter = Filters(source = f"{self.data_comparison_filter}",
+            target = f"{self.data_comparison_filter}")
+        else:
+            recon_filter = None
 
         recon_table = self.get_table(
                   recon_aggs=None,
@@ -173,17 +277,17 @@ class SCB_Reconcile():
                   recon_drop_cols=None,
                   recon_col_mapping=None,
                   recon_trnsfrms=None,
-                  recon_filters=None,
+                  recon_filters=recon_filter,
                   recon_tbl_thresholds=None
                   )
 
         recon_config = self.get_recon_config(report_type)
 
         table_recon = TableRecon(
-            source_catalog="hive_metastore",
-            source_schema=self.dbx_schema_table.split(".")[0],
-            target_catalog=self.dbx_catalog,
-            target_schema=self.dbx_schema_table.split(".")[0],
+            source_catalog=self.src_catalog,
+            source_schema=self.src_schema_table.split(".")[0],
+            target_catalog=self.tgt_catalog,
+            target_schema=self.tgt_schema_table.split(".")[0],
             tables=[recon_table]
         )
 
@@ -219,13 +323,29 @@ class SCB_Reconcile():
             return data_recon_passed, failed_data_recon_id, failed_columns_list
 
         except Exception as ex:
-            display(str(ex))
+            print(str(ex))
+            raise Exception(str(ex))
 
 
-    def execute_aggregate_recons(self,group_by_columns:List[str]=[],exclusion_columns:List[str]=[],report_type="row"):
+    def execute_aggregate_recons(self,report_type="row"):
+        """
+            Process to Execute Aggregation Recon
+            Inputs:
+                Report Type
+            Outputs:
+                Aggregations Recon Pass Status as a Boolean Flag
+                Aggregation Recon Id
+                Columns against which Recon failed
+        """
+
         recon_agg_helper = DataType_Recon()
-        input_columns_mapping = self.get_table_schema(exclusion_columns)
-        recon_aggs, recon_trnsfrms = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,group_by_columns)
+        input_columns_mapping = self.get_agg_table_schema()
+        recon_aggs, recon_trnsfrms = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,[])
+        if self.data_comparison_filter != '':
+            recon_filter = Filters(source=f"{self.data_comparison_filter}",
+                                   target=f"{self.data_comparison_filter}")
+        else:
+            recon_filter = None
 
         recon_table = self.get_table(recon_aggs=recon_aggs,
                                      recon_join_cols=None,
@@ -233,16 +353,16 @@ class SCB_Reconcile():
                                      recon_drop_cols=None,
                                      recon_col_mapping=None,
                                      recon_trnsfrms=recon_trnsfrms,
-                                     recon_filters=None,
+                                     recon_filters=recon_filter,
                                      recon_tbl_thresholds=None)
 
         recon_config = self.get_recon_config(report_type)
 
         table_recon = TableRecon(
-            source_catalog="hive_metastore",
-            source_schema=self.dbx_schema_table.split(".")[0],
-            target_catalog = self.dbx_catalog,
-            target_schema = self.dbx_schema_table.split(".")[0],
+            source_catalog=self.src_catalog,
+            source_schema=self.src_schema_table.split(".")[0],
+            target_catalog = self.tgt_catalog,
+            target_schema = self.tgt_schema_table.split(".")[0],
             tables = [recon_table]
         )
 
@@ -288,4 +408,5 @@ class SCB_Reconcile():
             return data_exec_required, failed_agg_recon_id, failed_columns_list
 
         except Exception as ex:
-            display(str(ex))
+            print(str(ex))
+            raise Exception(str(ex))

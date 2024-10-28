@@ -1,0 +1,14 @@
+env:
+  dldev:
+    sql_server: "scbudpseaasq001dev"
+    sql_database: "scbudpseaasqdb001dev"
+    secret_scope: "scbudpseaakv001dev"
+    sql_username_key: "dbusr--udp--scbdipseaasq001dev--hms--federatedb"
+    sql_password_key: "dbpwd--udp--scbdipseaasq001dev--hms--federatedb"
+    storage_accounts: ["scbdipseasta001stddev","scbdipseasta002stddev","scbdipseasta003stddev","scbdipseasta004stddev",
+                       "scbdipseasta005stddev","scbdipseasta006stddev","scbdipseasta007stddev","scbdipseasta008stddev",
+                       "scbdipseasta009stddev","scbdipseasta010stddev","scbdipseasta011stddev","scbdipseasta013stddev",
+                       "scbdipseasta014stddev","scbdipseasta015stddev","scbdipseasta016stddev"]
+    metadata_catalog: "scbucudpdev"
+    metadata_schema: "reconcile"
+    metadata_volume: "reconcile_volume"
