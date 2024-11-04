@@ -369,46 +369,89 @@ class SCB_Reconcile():
             tables = [recon_table]
         )
 
+        data_exec_required = False
+        success_recon_id = ""
+        failed_columns = []
+
         try:
-            exec_agg_recon = reconcile_aggregates(
-            ws = self.wrkspc_client,
-            spark = self.spark,
-            table_recon = table_recon,
-            reconcile_config = recon_config
-            )
+            if len(recon_aggs) != 0:
+                exec_agg_recon = reconcile_aggregates(
+                    ws = self.wrkspc_client,
+                    spark = self.spark,
+                    table_recon = table_recon,
+                    reconcile_config = recon_config
+                )
 
-            data_exec_required = False
-            success_agg_recon_id = exec_agg_recon.recon_id
-            failed_columns_list = []
+                success_agg_recon_id = exec_agg_recon
 
-            return data_exec_required,success_agg_recon_id,failed_columns_list
+                success_recon_id = success_agg_recon_id
 
+            return data_exec_required,success_recon_id,failed_columns
 
-
-        except ReconciliationException as recon_excep:
-            print("Recon Exception")
-            agg_failure_output  = recon_excep.reconcile_output
-
-            data_exec_required = False
-            failed_columns_list = []
-
-            failed_agg_recon_id: str = agg_failure_output.recon_id
-            failed_agg_recon_results: list[ReconcileTableOutput] = agg_failure_output.results
+        except ReconciliationException as agg_recon_excep:
+            agg_recon_failure_output = agg_recon_excep.reconcile_output
+            failed_recon_id: str = agg_recon_failure_output.recon_id
+            failed_agg_recon_results: list[ReconcileTableOutput] = agg_recon_failure_output.results
 
             if len(failed_agg_recon_results) != 0:
                 data_exec_required = True
-                failed_columns = self.spark.sql(f"""Select distinct rule_info.agg_column 
-                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                            where rule_id in (
-                            Select rule_id 
-                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                             where recon_table_id in (
-                             Select recon_table_id 
-                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_agg_recon_id}' ))""")
+                failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
+                                        from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
+                                        where rule_id in (
+                                        Select rule_id 
+                                        from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
+                                         where recon_table_id in (
+                                         Select recon_table_id 
+                                         from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_agg_recon_id}' ))""")\
+                                              .toPandas()['agg_column'])
 
-                failed_columns_list = list(failed_columns.toPandas()['agg_column'])
+            try:
+                if len(recon_trnsfrms) != 0:
+                    exec_trnsfrm_recon = recon(
+                        ws=self.wrkspc_client,
+                        spark=self.spark,
+                        table_recon=table_recon,
+                        reconcile_config=recon_config
+                    )
 
-            return data_exec_required, failed_agg_recon_id, failed_columns_list
+                    success_recon_id = exec_trnsfrm_recon.recon_id
+
+            except ReconciliationException as trnfrm_recon_excep:
+                print("Recon Exception")
+                trnfrm_recon_failure_output = trnfrm_recon_excep.reconcile_output
+
+                if failed_recon_id != "":
+                    failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
+                else:
+                    failed_recon_id = trnfrm_recon_failure_output.recon_id
+
+                failed_trnsfrm_recon_results: list[ReconcileTableOutput] = trnfrm_recon_failure_output.results
+
+                if len(failed_trnsfrm_recon_results) != 0:
+                    data_exec_required = True
+                    if len(failed_columns) == 0:
+                        failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
+                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
+                                                where rule_id in (
+                                                Select rule_id 
+                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
+                                                 where recon_table_id in (
+                                                 Select recon_table_id 
+                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_trnsfrm_recon_id}' ))""")\
+                                              .toPandas()['agg_column'])
+                    else:
+
+                        failed_columns = failed_columns + list(self.spark.sql(f"""Select distinct rule_info.agg_column 
+                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
+                                                where rule_id in (
+                                                Select rule_id 
+                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
+                                                 where recon_table_id in (
+                                                 Select recon_table_id 
+                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_trnsfrm_recon_id}' ))""")\
+                                              .toPandas()['agg_column'])
+
+                return data_exec_required, failed_recon_id, failed_columns
 
         except Exception as ex:
             print(str(ex))
