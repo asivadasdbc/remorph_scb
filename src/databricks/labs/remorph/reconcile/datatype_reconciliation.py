@@ -37,22 +37,22 @@ class DataType_Recon():
             Aggregate(
                 agg_columns=[column_name],
                 type="MIN",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="MAX",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="MEAN",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="SUM",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             )
             ]
 
@@ -64,12 +64,12 @@ class DataType_Recon():
             Aggregate(
                 agg_columns=[column_name],
                 type="SUM",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="MAX",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             )
         ]
         transforms = []
@@ -80,17 +80,17 @@ class DataType_Recon():
             Aggregate(
                 agg_columns=[column_name],
                 type="MIN",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="MAX",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="SUM",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             )
         ]
 
@@ -109,12 +109,12 @@ class DataType_Recon():
             Aggregate(
                 agg_columns=[column_name],
                 type="MIN",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             ),
             Aggregate(
                 agg_columns=[column_name],
                 type="MAX",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else None
+                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             )
         ]
 
@@ -124,32 +124,29 @@ class DataType_Recon():
 
 
     def get_agg_recon_table_objects(self,input_columns:Dict,group_by_columns:List[str]):
-        aggregations = transformations = []
+        aggregations = select_cols = []
         for column_name in input_columns:
             datatype = input_columns[column_name]
             if len(re.findall(self.string_data_type_matcher, datatype)) != 0:
-                dt_type_aggregations , dt_type_transformations = self.agg_str_type_test(column_name,group_by_columns)
+                dt_type_aggregations , _ = self.agg_str_type_test(column_name,group_by_columns)
                 aggregations = aggregations + dt_type_aggregations
-                transformations =  transformations + dt_type_transformations
+                select_cols.append(column_name)
 
             elif len(re.findall(self.numeric_data_type_matcher, datatype)) != 0:
-                dt_type_aggregations , dt_type_transformations = self.agg_numerical_type_test(column_name,group_by_columns)
+                dt_type_aggregations , _ = self.agg_numerical_type_test(column_name,group_by_columns)
                 aggregations = aggregations + dt_type_aggregations
-                transformations = transformations + dt_type_transformations
 
             elif len(re.findall(self.date_data_type_matcher, datatype)) != 0:
-                dt_type_aggregations , dt_type_transformations = self.agg_date_type_test(column_name,group_by_columns)
+                dt_type_aggregations , _ = self.agg_date_type_test(column_name,group_by_columns)
                 aggregations = aggregations + dt_type_aggregations
-                transformations = transformations + dt_type_transformations
 
             elif len(re.findall(self.bool_data_type_matcher, datatype)) != 0:
-                dt_type_aggregations , dt_type_transformations = self.agg_date_type_test(column_name,group_by_columns)
+                dt_type_aggregations , _ = self.agg_date_type_test(column_name,group_by_columns)
                 aggregations = aggregations + dt_type_aggregations
-                transformations = transformations + dt_type_transformations
 
             else:
-                dt_type_aggregations , dt_type_transformations = self.agg_catchall_type_test(column_name,group_by_columns)
+                dt_type_aggregations , _ = self.agg_catchall_type_test(column_name,group_by_columns)
                 aggregations = aggregations + dt_type_aggregations
-                transformations = transformations + dt_type_transformations
+                select_cols.append(column_name)
 
-        return aggregations,transformations
+        return aggregations,select_cols

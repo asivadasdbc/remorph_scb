@@ -8,7 +8,7 @@ from src.databricks.labs.remorph.config import DatabaseConfig, ReconcileMetadata
 from src.databricks.labs.remorph.reconcile.datatype_reconciliation import DataType_Recon
 from src.databricks.labs.remorph.reconcile.exception import ReconciliationException
 from src.databricks.labs.remorph.reconcile.execute import reconcile_aggregates, recon
-from src.databricks.labs.remorph.reconcile.recon_config import Table, ReconcileTableOutput, Filters
+from src.databricks.labs.remorph.reconcile.recon_config import Table, ReconcileTableOutput, Filters, ReconcileOutput
 
 import re
 import yaml
@@ -69,7 +69,7 @@ class SCB_Reconcile():
         # self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
         # self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
 
-        self.sqlUser = "udpdip0004@scbcorp.onmicrosoft.com"
+        self.sqlUser = "udpdip0001@scbcorp.onmicrosoft.com"
         self.sqlPassword = "UDPDIP@scb2024#"
 
         self.metadata_catalog = self.config["env"][environment]["metadata_catalog"]
@@ -109,7 +109,7 @@ class SCB_Reconcile():
 
         #Getting the Columns to be excluded from the Reconciliation
         self.system_exclusion_columns = ['udp_row_md5', 'udp_key_md5', 'udp_job_id', 'udp_run_id', 'batch_uuid',
-                                         'data_load_ts']
+                                         'data_load_ts','dl_data_dt']
         if len(self.additional_excl_cols_list) != 0:
             self.exclusion_cols = list(set(self.additional_excl_cols_list + self.system_exclusion_columns))
         else:
@@ -275,8 +275,8 @@ class SCB_Reconcile():
 
         recon_table = self.get_table(
                   recon_aggs=None,
-                  recon_join_cols=recon_join_cols,
-                  recon_select_cols=recon_columns,
+                  recon_join_cols=recon_join_cols if recon_join_cols else recon_columns,
+                  recon_select_cols=recon_columns if not recon_join_cols else [],
                   recon_drop_cols=None,
                   recon_col_mapping=None,
                   recon_trnsfrms=None,
@@ -343,30 +343,30 @@ class SCB_Reconcile():
 
         recon_agg_helper = DataType_Recon()
         input_columns_mapping = self.get_agg_table_schema()
-        recon_aggs, recon_trnsfrms = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,[])
+        recon_aggs, select_cols = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,[])
         if self.data_comparison_filter != '':
             recon_filter = Filters(source=f"{self.data_comparison_filter}",
                                    target=f"{self.data_comparison_filter}")
         else:
             recon_filter = None
 
-        recon_table = self.get_table(recon_aggs=recon_aggs,
+        agg_recon_table = self.get_table(recon_aggs=recon_aggs,
                                      recon_join_cols=None,
                                      recon_select_cols=None,
                                      recon_drop_cols=None,
                                      recon_col_mapping=None,
-                                     recon_trnsfrms=recon_trnsfrms,
+                                     recon_trnsfrms=None,
                                      recon_filters=recon_filter,
                                      recon_tbl_thresholds=None)
 
         recon_config = self.get_recon_config(report_type)
 
-        table_recon = TableRecon(
+        agg_table_recon = TableRecon(
             source_catalog=self.src_catalog,
             source_schema=self.src_schema_table.split(".")[0],
             target_catalog = self.tgt_catalog,
             target_schema = self.tgt_schema_table.split(".")[0],
-            tables = [recon_table]
+            tables = [agg_recon_table]
         )
 
         data_exec_required = False
@@ -378,7 +378,7 @@ class SCB_Reconcile():
                 exec_agg_recon = reconcile_aggregates(
                     ws = self.wrkspc_client,
                     spark = self.spark,
-                    table_recon = table_recon,
+                    table_recon = agg_table_recon,
                     reconcile_config = recon_config
                 )
 
@@ -389,12 +389,15 @@ class SCB_Reconcile():
             return data_exec_required,success_recon_id,failed_columns
 
         except ReconciliationException as agg_recon_excep:
-            agg_recon_failure_output = agg_recon_excep.reconcile_output
+            print("Aggregate Recon Failed")
+            data_exec_required = True
+            agg_recon_failure_output: ReconcileOutput = agg_recon_excep.reconcile_output
             failed_recon_id: str = agg_recon_failure_output.recon_id
             failed_agg_recon_results: list[ReconcileTableOutput] = agg_recon_failure_output.results
 
             if len(failed_agg_recon_results) != 0:
-                data_exec_required = True
+
+
                 failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
                                         from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
                                         where rule_id in (
@@ -402,15 +405,34 @@ class SCB_Reconcile():
                                         from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
                                          where recon_table_id in (
                                          Select recon_table_id 
-                                         from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_agg_recon_id}' ))""")\
+                                         from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{agg_recon_failure_output.recon_id}' ))""")\
                                               .toPandas()['agg_column'])
 
             try:
-                if len(recon_trnsfrms) != 0:
+                if len(select_cols) != 0:
+                    row_recon_table = self.get_table(recon_aggs=None,
+                                                     recon_join_cols=None,
+                                                     recon_select_cols=select_cols,
+                                                     recon_drop_cols=None,
+                                                     recon_col_mapping=None,
+                                                     recon_trnsfrms=None,
+                                                     recon_filters=recon_filter,
+                                                     recon_tbl_thresholds=None)
+
+                    recon_config = self.get_recon_config(report_type)
+
+                    row_table_recon = TableRecon(
+                        source_catalog=self.src_catalog,
+                        source_schema=self.src_schema_table.split(".")[0],
+                        target_catalog=self.tgt_catalog,
+                        target_schema=self.tgt_schema_table.split(".")[0],
+                        tables=[row_recon_table]
+                    )
+
                     exec_trnsfrm_recon = recon(
                         ws=self.wrkspc_client,
                         spark=self.spark,
-                        table_recon=table_recon,
+                        table_recon=row_table_recon,
                         reconcile_config=recon_config
                     )
 
@@ -437,7 +459,7 @@ class SCB_Reconcile():
                                                 from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
                                                  where recon_table_id in (
                                                  Select recon_table_id 
-                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_trnsfrm_recon_id}' ))""")\
+                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
                                               .toPandas()['agg_column'])
                     else:
 
@@ -448,7 +470,7 @@ class SCB_Reconcile():
                                                 from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
                                                  where recon_table_id in (
                                                  Select recon_table_id 
-                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{failed_trnsfrm_recon_id}' ))""")\
+                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
                                               .toPandas()['agg_column'])
 
                 return data_exec_required, failed_recon_id, failed_columns

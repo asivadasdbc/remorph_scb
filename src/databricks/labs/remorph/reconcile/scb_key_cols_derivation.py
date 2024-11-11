@@ -37,11 +37,13 @@ class SCB_Key_Cols_Derivation():
 
         if '[ALL_COLUMNS]' in configured_key_cols_str:
             key_cols_list = ["*"]
-        else:
+        elif configured_key_cols_str != "":
             configured_key_cols_list = configured_key_cols_str.split(",")
             if len(self.additional_key_cols_list) != 0:
                 key_cols_list = list(set(configured_key_cols_list+self.additional_key_cols_list))
             else:
                 key_cols_list = list(set(configured_key_cols_list))
+        else:
+            key_cols_list = []
 
         return key_cols_list
