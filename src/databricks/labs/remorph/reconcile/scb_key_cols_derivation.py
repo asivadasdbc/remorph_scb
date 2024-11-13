@@ -18,13 +18,17 @@ class SCB_Key_Cols_Derivation():
 
     def query(self):
 
-        query_string = f"""Select column_nm_key from {self.configuration_table} where table_nm = '{self.target_table_name}'"""
+        query_string = f"""Select column_nm_key from {self.configuration_table} 
+        where catalog_nm = '{self.target_table_name.split(".")[0]}' and schema_nm = 
+        '{self.target_table_name.split(".")[1]}' and table_nm = '{self.target_table_name.split(".")[-1]}'"""
 
         configuration_data = self.spark.read \
             .format("jdbc") \
             .option("url", self.connection_string) \
             .option("query", query_string) \
             .load()
+
+        configuration_data.display()
 
         return configuration_data
 

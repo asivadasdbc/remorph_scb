@@ -10,10 +10,14 @@ from src.databricks.labs.remorph.reconcile.exception import ReconciliationExcept
 from src.databricks.labs.remorph.reconcile.execute import reconcile_aggregates, recon
 from src.databricks.labs.remorph.reconcile.recon_config import Table, ReconcileTableOutput, Filters, ReconcileOutput
 
+import logging
 import re
 import yaml
 
 from src.databricks.labs.remorph.reconcile.scb_key_cols_derivation import SCB_Key_Cols_Derivation
+
+
+logger = logging.getLogger(__name__)
 
 
 def table_name_split(table_name):
@@ -21,6 +25,7 @@ def table_name_split(table_name):
     table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
     tbl_nm_matches = re.findall(table_name_pattern,table_name)
     if len(tbl_nm_matches[0]) != 3:
+        logger.error("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
         raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
     else:
         dbx_catalog = tbl_nm_matches[0][0]
@@ -66,11 +71,8 @@ class SCB_Reconcile():
 
         self.dbutils = DBUtils(self.spark)
 
-        # self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
-        # self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
-
-        self.sqlUser = "udpdip0001@scbcorp.onmicrosoft.com"
-        self.sqlPassword = "UDPDIP@scb2024#"
+        self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
+        self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
 
         self.metadata_catalog = self.config["env"][environment]["metadata_catalog"]
         self.metadata_schema = self.config["env"][environment]["metadata_schema"]
@@ -79,7 +81,7 @@ class SCB_Reconcile():
         self.storage_accounts = self.config["env"][environment]["storage_accounts"]
 
 
-        self.sqlConnectionString = f"""jdbc:sqlserver://{self.sqlServer}.database.windows.net:1433;database={self.sqlDatabase};user={self.sqlUser};password={self.sqlPassword};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;authentication=ActiveDirectoryPassword"""
+        self.sqlConnectionString = f"""jdbc:sqlserver://{self.sqlServer}.database.windows.net:1433;database={self.sqlDatabase};user={self.sqlUser};password={self.sqlPassword};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30"""
 
 
 
@@ -99,7 +101,7 @@ class SCB_Reconcile():
 
         #Getting the Key Columns based on configured values and additional provided as part of user input
         self.key_cols_derivations = SCB_Key_Cols_Derivation(
-            target_table_name=self.tgt_schema_table.split(".")[1],
+            target_table_name=self.tgt_schema_table,
             connection_string=self.sqlConnectionString,
             additional_key_cols_list=self.additional_key_cols_list,
             spark = self.spark
@@ -340,7 +342,7 @@ class SCB_Reconcile():
                 Aggregation Recon Id
                 Columns against which Recon failed
         """
-
+        logger.info("Starting Aggregate & Row Recon")
         recon_agg_helper = DataType_Recon()
         input_columns_mapping = self.get_agg_table_schema()
         recon_aggs, select_cols = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,[])
@@ -374,6 +376,7 @@ class SCB_Reconcile():
         failed_columns = []
 
         try:
+            logger.info("Executing Aggregate Recon")
             if len(recon_aggs) != 0:
                 exec_agg_recon = reconcile_aggregates(
                     ws = self.wrkspc_client,
@@ -389,7 +392,7 @@ class SCB_Reconcile():
             return data_exec_required,success_recon_id,failed_columns
 
         except ReconciliationException as agg_recon_excep:
-            print("Aggregate Recon Failed")
+            logger.error("Aggregate Recon Failed")
             data_exec_required = True
             agg_recon_failure_output: ReconcileOutput = agg_recon_excep.reconcile_output
             failed_recon_id: str = agg_recon_failure_output.recon_id
@@ -409,6 +412,7 @@ class SCB_Reconcile():
                                               .toPandas()['agg_column'])
 
             try:
+                logger.info("Executing Row Recon")
                 if len(select_cols) != 0:
                     row_recon_table = self.get_table(recon_aggs=None,
                                                      recon_join_cols=None,
