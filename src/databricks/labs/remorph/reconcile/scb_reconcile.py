@@ -101,7 +101,7 @@ class SCB_Reconcile():
 
         #Getting the Key Columns based on configured values and additional provided as part of user input
         self.key_cols_derivations = SCB_Key_Cols_Derivation(
-            target_table_name=self.tgt_schema_table,
+            target_table_name=self.target_table,
             connection_string=self.sqlConnectionString,
             additional_key_cols_list=self.additional_key_cols_list,
             spark = self.spark
@@ -371,6 +371,7 @@ class SCB_Reconcile():
             tables = [agg_recon_table]
         )
 
+
         data_exec_required = False
         success_recon_id = ""
         failed_columns = []
@@ -385,9 +386,7 @@ class SCB_Reconcile():
                     reconcile_config = recon_config
                 )
 
-                success_agg_recon_id = exec_agg_recon
-
-                success_recon_id = success_agg_recon_id
+                success_recon_id = exec_agg_recon.recon_id
 
             return data_exec_required,success_recon_id,failed_columns
 
@@ -399,8 +398,6 @@ class SCB_Reconcile():
             failed_agg_recon_results: list[ReconcileTableOutput] = agg_recon_failure_output.results
 
             if len(failed_agg_recon_results) != 0:
-
-
                 failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
                                         from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
                                         where rule_id in (
@@ -411,73 +408,75 @@ class SCB_Reconcile():
                                          from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{agg_recon_failure_output.recon_id}' ))""")\
                                               .toPandas()['agg_column'])
 
-            try:
-                logger.info("Executing Row Recon")
-                if len(select_cols) != 0:
-                    row_recon_table = self.get_table(recon_aggs=None,
-                                                     recon_join_cols=None,
-                                                     recon_select_cols=select_cols,
-                                                     recon_drop_cols=None,
-                                                     recon_col_mapping=None,
-                                                     recon_trnsfrms=None,
-                                                     recon_filters=recon_filter,
-                                                     recon_tbl_thresholds=None)
+                select_cols = select_cols + failed_columns
 
-                    recon_config = self.get_recon_config(report_type)
 
-                    row_table_recon = TableRecon(
-                        source_catalog=self.src_catalog,
-                        source_schema=self.src_schema_table.split(".")[0],
-                        target_catalog=self.tgt_catalog,
-                        target_schema=self.tgt_schema_table.split(".")[0],
-                        tables=[row_recon_table]
-                    )
+        try:
+            logger.info("Executing Row Recon")
+            if len(select_cols) != 0:
+                row_recon_table = self.get_table(recon_aggs=recon_aggs,
+                                                 recon_join_cols=None,
+                                                 recon_select_cols=select_cols,
+                                                 recon_drop_cols=None,
+                                                 recon_col_mapping=None,
+                                                 recon_trnsfrms=None,
+                                                 recon_filters=recon_filter,
+                                                 recon_tbl_thresholds=None)
 
-                    exec_trnsfrm_recon = recon(
-                        ws=self.wrkspc_client,
-                        spark=self.spark,
-                        table_recon=row_table_recon,
-                        reconcile_config=recon_config
-                    )
+                row_table_recon = TableRecon(
+                    source_catalog=self.src_catalog,
+                    source_schema=self.src_schema_table.split(".")[0],
+                    target_catalog=self.tgt_catalog,
+                    target_schema=self.tgt_schema_table.split(".")[0],
+                    tables=[row_recon_table]
+                )
 
-                    success_recon_id = exec_trnsfrm_recon.recon_id
+                exec_trnsfrm_recon = recon(
+                    ws=self.wrkspc_client,
+                    spark=self.spark,
+                    table_recon=row_table_recon,
+                    reconcile_config=recon_config
+                )
 
-            except ReconciliationException as trnfrm_recon_excep:
-                print("Recon Exception")
-                trnfrm_recon_failure_output = trnfrm_recon_excep.reconcile_output
+                success_recon_id = exec_trnsfrm_recon.recon_id
+                return data_exec_required, success_recon_id, failed_columns
 
-                if failed_recon_id != "":
-                    failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
+        except ReconciliationException as trnfrm_recon_excep:
+            logger.error("Row Recon Failed")
+            trnfrm_recon_failure_output = trnfrm_recon_excep.reconcile_output
+
+            if failed_recon_id != "":
+                failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
+            else:
+                failed_recon_id = trnfrm_recon_failure_output.recon_id
+
+            failed_trnsfrm_recon_results: list[ReconcileTableOutput] = trnfrm_recon_failure_output.results
+
+            if len(failed_trnsfrm_recon_results) != 0:
+                data_exec_required = True
+                if len(failed_columns) == 0:
+                    failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
+                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
+                                            where rule_id in (
+                                            Select rule_id 
+                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
+                                             where recon_table_id in (
+                                             Select recon_table_id 
+                                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
+                                          .toPandas()['agg_column'])
                 else:
-                    failed_recon_id = trnfrm_recon_failure_output.recon_id
 
-                failed_trnsfrm_recon_results: list[ReconcileTableOutput] = trnfrm_recon_failure_output.results
+                    failed_columns = failed_columns + list(self.spark.sql(f"""Select distinct rule_info.agg_column 
+                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
+                                            where rule_id in (
+                                            Select rule_id 
+                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
+                                             where recon_table_id in (
+                                             Select recon_table_id 
+                                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
+                                          .toPandas()['agg_column'])
 
-                if len(failed_trnsfrm_recon_results) != 0:
-                    data_exec_required = True
-                    if len(failed_columns) == 0:
-                        failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
-                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                                                where rule_id in (
-                                                Select rule_id 
-                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                                                 where recon_table_id in (
-                                                 Select recon_table_id 
-                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
-                                              .toPandas()['agg_column'])
-                    else:
-
-                        failed_columns = failed_columns + list(self.spark.sql(f"""Select distinct rule_info.agg_column 
-                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                                                where rule_id in (
-                                                Select rule_id 
-                                                from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                                                 where recon_table_id in (
-                                                 Select recon_table_id 
-                                                 from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
-                                              .toPandas()['agg_column'])
-
-                return data_exec_required, failed_recon_id, failed_columns
+            return data_exec_required, failed_recon_id, list(set(failed_columns))
 
         except Exception as ex:
             print(str(ex))
