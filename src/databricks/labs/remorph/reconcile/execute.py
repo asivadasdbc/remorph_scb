@@ -2,6 +2,7 @@ import logging
 import sys
 import os
 from datetime import datetime
+from logging.config import fileConfig
 from uuid import uuid4
 
 from pyspark.errors import PySparkException
@@ -169,6 +170,7 @@ def recon(
     spark: SparkSession,
     table_recon: TableRecon,
     reconcile_config: ReconcileConfig,
+    file_config:dict = {},
     local_test_run: bool = False,
 ) -> ReconcileOutput:
     """[EXPERIMENTAL] Reconcile the data between the source and target tables."""
@@ -189,6 +191,7 @@ def recon(
         spark=spark,
         ws=ws_client,
         secret_scope=reconcile_config.secret_scope,
+        file_config=file_config
     )
 
     recon_id = str(uuid4())
@@ -294,9 +297,14 @@ def initialise_data_source(
     spark: SparkSession,
     engine: Dialect,
     secret_scope: str,
+    file_config:dict
 ):
-    source = create_adapter(engine=engine, spark=spark, ws=ws, secret_scope=secret_scope)
-    target = create_adapter(engine=get_dialect("databricks"), spark=spark, ws=ws, secret_scope=secret_scope)
+    if engine == "filestore":
+        target_engine = engine
+    else:
+        target_engine = get_dialect("databricks")
+    source = create_adapter(engine=engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config)
+    target = create_adapter(engine=target_engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config)
 
     return source, target
 

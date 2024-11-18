@@ -20,19 +20,23 @@ from src.databricks.labs.remorph.reconcile.scb_key_cols_derivation import SCB_Ke
 logger = logging.getLogger(__name__)
 
 
-def table_name_split(table_name):
+def table_name_folder_split(table_file_name=None,layer="ingestion"):
 
-    table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
-    tbl_nm_matches = re.findall(table_name_pattern,table_name)
-    if len(tbl_nm_matches[0]) != 3:
-        logger.error("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
-        raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+    if layer in ("ingestion","transformation"):
+        table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
+        tbl_nm_matches = re.findall(table_name_pattern,table_file_name)
+        if len(tbl_nm_matches[0]) != 3:
+            logger.error("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+            raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+        else:
+            dbx_catalog = tbl_nm_matches[0][0]
+            dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
+    elif layer in ("outbound"):
+        dbx_catalog = "outbound"
+        dbx_schema_table = table_file_name
     else:
-        dbx_catalog = tbl_nm_matches[0][0]
-        dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
-
-
-
+        logger.error("Invalid Layer, unable to derive details")
+        raise Exception("Invalid Layer, unable to derive details")
     return dbx_catalog,dbx_schema_table
 
 
@@ -86,8 +90,9 @@ class SCB_Reconcile():
 
 
         # Getting the Catalog and Schema.Table_Name from the received input
-        self.src_catalog, self.src_schema_table = table_name_split(self.source_table)
-        self.tgt_catalog, self.tgt_schema_table = table_name_split(self.target_table)
+        self.src_catalog, self.src_schema_table = table_name_folder_split(self.source_table,self.layer)
+        self.tgt_catalog, self.tgt_schema_table = table_name_folder_split(self.target_table,self.layer)
+
 
         # Setting up Workspace Client for usage In Recon
         self.wrkspc_client = WorkspaceClient(
@@ -104,10 +109,17 @@ class SCB_Reconcile():
             target_table_name=self.target_table,
             connection_string=self.sqlConnectionString,
             additional_key_cols_list=self.additional_key_cols_list,
+            unique_keys_table=self.config["env"][environment]["unique_keys_table"],
+            outbound_config_table=self.config["env"][environment]["outbound_config_table"],
             spark = self.spark
         )
 
-        self.key_cols = self.key_cols_derivations.get_final_key_cols()
+        if self.layer in ["ingestion","transformation"]:
+            self.key_cols = self.key_cols_derivations.get_final_key_cols()
+            self.outbound_info = ""
+        elif self.layer in ["outbound"]:
+            self.key_cols = []
+            self.outbound_info = self.key_cols_derivations.outbound_config_query()
 
         #Getting the Columns to be excluded from the Reconciliation
         self.system_exclusion_columns = ['udp_row_md5', 'udp_key_md5', 'udp_job_id', 'udp_run_id', 'batch_uuid',
@@ -143,8 +155,6 @@ class SCB_Reconcile():
                            "org.apache.hadoop.fs.azurebfs.sas.FixedSASTokenProvider")
             self.spark.conf.set(f"fs.azure.sas.fixed.token.{storage_account}.dfs.core.windows.net",
                            self.dbutils.secrets.get(scope=self.secretScope, key=scope_key))
-
-
 
     def get_agg_table_schema(self):
         """
@@ -183,8 +193,15 @@ class SCB_Reconcile():
             volume=self.metadata_volume
         )
 
+        if self.layer in ("ingestion","transformation"):
+            data_source = "databricks"
+        elif self.layer in ("outbound"):
+            data_source = "filestore"
+        else:
+            data_source = "databricks"
+
         recon_config = ReconcileConfig(
-            data_source="databricks",
+            data_source=data_source,
             report_type=report_type,
             secret_scope=None,
             database_config=db_config,
@@ -301,7 +318,8 @@ class SCB_Reconcile():
             ws = self.wrkspc_client,
             spark = self.spark,
             table_recon = table_recon,
-            reconcile_config = recon_config
+            reconcile_config = recon_config,
+            file_config = self.outbound_info
             )
 
             data_recon_passed = True
@@ -408,6 +426,8 @@ class SCB_Reconcile():
                                          from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{agg_recon_failure_output.recon_id}' ))""")\
                                               .toPandas()['agg_column'])
 
+                logger.error(f"Failed Columns : {','.join(failed_columns)}")
+
                 select_cols = select_cols + failed_columns
 
 
@@ -435,7 +455,8 @@ class SCB_Reconcile():
                     ws=self.wrkspc_client,
                     spark=self.spark,
                     table_recon=row_table_recon,
-                    reconcile_config=recon_config
+                    reconcile_config=recon_config,
+                    file_config=self.outbound_info
                 )
 
                 success_recon_id = exec_trnsfrm_recon.recon_id

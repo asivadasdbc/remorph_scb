@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 from sqlglot.dialects.dialect import Dialect, Dialects, DialectType
 
+
+from src.databricks.labs.remorph.scb_dialect import SCB_Dialects
 from src.databricks.labs.remorph.helpers.morph_status import ParserError
 from src.databricks.labs.remorph.reconcile.recon_config import Table
 from src.databricks.labs.remorph.snow import databricks, oracle, snowflake, presto
@@ -25,6 +27,7 @@ SQLGLOT_DIALECTS: dict[str, DialectType] = {
     "trino": Dialects.TRINO,
     "tsql": Dialects.TSQL,
     "vertica": Dialects.POSTGRES,
+    "filestore": SCB_Dialects.FILESTORE
 }
 
 

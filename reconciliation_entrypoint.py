@@ -166,12 +166,30 @@ Select missing_data from dtls_info""").display()
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC Select * from scbucudpdev.reconcile.main where recon_id = 'c5c39f70-e541-48cc-ad26-6afb52865ff6'
+# MAGIC %md
+# MAGIC ## Missing in Source
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC Select * from scbucudpdev.reconcile.metrics where recon_table_id = '4537334634086713322'
+spark.sql(f"""
+with recon_main as(Select * from scbucudpdev.reconcile.main main where main.recon_id = '{data_recon_id}'),
+recon_details as (Select * from scbucudpdev.reconcile.details dtl 
+inner join recon_main main on main.recon_table_id = dtl.recon_table_id
+and dtl.recon_type = "missing_in_source"),
+dtls_info as (Select explode(dtl.data) as missing_data from recon_details dtl)
+Select missing_data from dtls_info""").display()
 
 # COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Missing in Target
+
+# COMMAND ----------
+
+spark.sql(f"""
+with recon_main as(Select * from scbucudpdev.reconcile.main main where main.recon_id = '{data_recon_id}'),
+recon_details as (Select * from scbucudpdev.reconcile.details dtl 
+inner join recon_main main on main.recon_table_id = dtl.recon_table_id
+and dtl.recon_type = "missing_in_target"),
+dtls_info as (Select explode(dtl.data) as missing_data from recon_details dtl)
+Select missing_data from dtls_info""").display()
