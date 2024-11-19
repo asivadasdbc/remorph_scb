@@ -245,17 +245,12 @@ def recon(
         recon_process_duration.end_ts = str(datetime.now())
         # Persist the data to the delta tables
 
-        if file_config:
-            record_counts = reconciler.get_outbound_record_count(table_conf,report_type)
-        else:
-            record_counts = reconciler.get_record_count(table_conf, report_type)
-
         recon_capture.start(
             data_reconcile_output=data_reconcile_output,
             schema_reconcile_output=schema_reconcile_output,
             table_conf=table_conf,
             recon_process_duration=recon_process_duration,
-            record_count=record_counts,
+            record_count=reconciler.get_record_count(table_conf, report_type),
         )
         if report_type != "schema":
             ReconIntermediatePersist(
@@ -854,25 +849,6 @@ class Reconciliation:
                 options=None,
             ).collect()[0]["count"]
 
-            return ReconcileRecordCount(source=int(source_count), target=int(target_count))
-        return ReconcileRecordCount()
-
-    def get_outbound_record_count(self,table_conf:Table,report_type:str) -> ReconcileRecordCount:
-        if report_type != "schema":
-            source_count = self._source.read_data(
-                catalog=self._database_config.source_catalog,
-                schema=self._database_config.source_schema,
-                table=table_conf.source_name,
-                query="",
-                options=None,
-            ).count()
-            target_count = self._target.read_data(
-                catalog=self._database_config.target_catalog,
-                schema=self._database_config.target_schema,
-                table=table_conf.target_name,
-                query="",
-                options=None,
-            ).count()
             return ReconcileRecordCount(source=int(source_count), target=int(target_count))
         return ReconcileRecordCount()
 

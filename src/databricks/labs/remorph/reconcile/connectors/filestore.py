@@ -37,19 +37,21 @@ class FileStoreDataSource(DataSource, SecretsMixin):
         catalog: str | None,
         schema: str,
         table: str,
-        query: list[str],
+        query: str,
         options: JdbcReaderOptions | None,
     ) -> DataFrame:
 
         header = True if self._file_config['header_info'] == 'Y' else False
         field_separator = self._file_config['field_separator']
         table_query = query.replace(":tbl", "file_data")
+
         try:
             self._spark.read.format("csv")\
                 .option("header", header).option("sep", field_separator).load(table)\
                 .createOrReplaceTempView("file_data")
             df = self._spark.sql(table_query)
-            return df.select([col(column).alias(column.lower()) for column in df.columns]).selectExpr(*query)
+
+            return df.select([col(column).alias(column.lower()) for column in df.columns])
         except (RuntimeError, PySparkException) as e:
             return self.log_and_throw_exception(e, "data", table)
 
