@@ -50,6 +50,7 @@ class SCB_Dialects(str, Enum):
 
     DIALECT = ""
     FILESTORE = "filestore"
+    OLAP = "olap"
 
 
 class NormalizationStrategy(str, AutoName):

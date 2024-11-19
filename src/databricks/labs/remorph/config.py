@@ -27,7 +27,8 @@ SQLGLOT_DIALECTS: dict[str, DialectType] = {
     "trino": Dialects.TRINO,
     "tsql": Dialects.TSQL,
     "vertica": Dialects.POSTGRES,
-    "filestore": SCB_Dialects.FILESTORE
+    "filestore": SCB_Dialects.FILESTORE,
+    "olap": SCB_Dialects.OLAP
 }
 
 

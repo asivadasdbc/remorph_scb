@@ -14,3 +14,7 @@ env:
     metadata_catalog: "scbucudpdev"
     metadata_schema: "reconcile"
     metadata_volume: "reconcile_volume"
+    olap_server: "scbdipseaasq002dev"
+    olap_database: "dlunar"
+    olap_username: "lunar_dev"
+    olap_password: "SCBdwh!2018"

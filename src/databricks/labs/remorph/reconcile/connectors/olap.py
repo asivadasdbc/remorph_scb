@@ -16,7 +16,7 @@ from databricks.sdk import WorkspaceClient
 logger = logging.getLogger(__name__)
 
 
-class FileStoreDataSource(DataSource, SecretsMixin):
+class OlapDataSource(DataSource, SecretsMixin):
 
     def __init__(
         self,
@@ -24,13 +24,13 @@ class FileStoreDataSource(DataSource, SecretsMixin):
         spark: SparkSession,
         ws: WorkspaceClient,
         secret_scope: str,
-        file_config:dict
+        connection_string:str
     ):
         self._engine = engine
         self._spark = spark
         self._ws = ws
         self._secret_scope = secret_scope
-        self._file_config = file_config
+        self._connection_string = connection_string
 
     def read_data(
         self,
@@ -41,13 +41,15 @@ class FileStoreDataSource(DataSource, SecretsMixin):
         options: JdbcReaderOptions | None,
     ) -> DataFrame:
 
-        header = True if self._file_config['header_info'] == 'Y' else False
-        field_separator = self._file_config['field_separator']
-        table_query = query.replace(":tbl", "file_data")
+        table_query = query.replace(":tbl", "olap_data")
+        data_read_query = f"""Select * from {schema}.{table}"""
 
         try:
-            self._spark.read.format("csv")\
-                .option("header", header).option("sep", field_separator).load(table)\
+
+            self._spark.read.format("jdbc")\
+                .option("url", self._connection_string)\
+                .option("query",data_read_query)\
+                .load()\
                 .createOrReplaceTempView("file_data")
             df = self._spark.sql(table_query)
 
@@ -61,13 +63,16 @@ class FileStoreDataSource(DataSource, SecretsMixin):
         schema: str,
         table: str,
     ) -> list[Schema]:
-        header = True if self._file_config['header_info'] == 'Y' else False
-        field_separator = self._file_config['field_separator']
 
         try:
+            data_read_query = f"""Select top 1 * from {schema}.{table}"""
             logger.info(f"Fetching Schema: Started at: {datetime.now()}")
-            schema_metadata = self._spark.read.format("csv").option("header", header).option("sep", field_separator)\
-                .load(table).schema
+            schema_metadata = self._spark.read.format("jdbc")\
+                .option("url", self._connection_string)\
+                .option("query",data_read_query)\
+                .load()\
+                .createOrReplaceTempView("file_data")\
+                .schema
             logger.info(f"Schema fetched successfully. Completed at: {datetime.now()}")
             return [Schema(field.name.lower(), field.dataType.simpleString().lower()) for field in schema_metadata if '#' not in field.name]
         except (RuntimeError, PySparkException) as e:

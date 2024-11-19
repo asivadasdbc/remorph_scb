@@ -1,3 +1,5 @@
+from dataclasses import field
+
 from databricks.sdk import WorkspaceClient
 from pyspark.sql import SparkSession
 from pyspark.dbutils import DBUtils
@@ -34,6 +36,15 @@ def table_name_folder_split(table_file_name=None,layer="ingestion"):
     elif layer in ("outbound"):
         dbx_catalog = "outbound"
         dbx_schema_table = table_file_name
+    elif layer in ("olap"):
+        table_name_pattern = r"^([^\.]+)\.([^\.]+)$"
+        tbl_nm_matches = re.findall(table_name_pattern,table_file_name)
+        if len(tbl_nm_matches[0]) != 2:
+            logger.error("Invalid Table Name, Ensure the table name is the pattern schema.table")
+            raise Exception("Invalid Table Name, Ensure the table name is in the pattern schema.table")
+        else:
+            dbx_catalog = "olap"
+            dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
     else:
         logger.error("Invalid Layer, unable to derive details")
         raise Exception("Invalid Layer, unable to derive details")
@@ -54,6 +65,7 @@ class SCB_Reconcile():
                  spark:SparkSession):
 
         # Setting Received Parameters
+        self.environment = environment
         self.source_table = source_table
         self.target_table = target_table
         self.layer = layer
@@ -67,28 +79,34 @@ class SCB_Reconcile():
         with open("./env_config.yaml","r") as config_data:
             self.config = yaml.safe_load(config_data)
 
-        self.sqlServer = self.config["env"][environment]["sql_server"]
-        self.sqlDatabase = self.config["env"][environment]["sql_database"]
-        self.sqlUserKey = self.config["env"][environment]["sql_username_key"]
-        self.sqlPasswordKey = self.config["env"][environment]["sql_password_key"]
+        self.sqlServer = self.config["env"][self.environment]["sql_server"]
+        self.sqlDatabase = self.config["env"][self.environment]["sql_database"]
+        self.sqlUserKey = self.config["env"][self.environment]["sql_username_key"]
+        self.sqlPasswordKey = self.config["env"][self.environment]["sql_password_key"]
 
-        self.secretScope = self.config["env"][environment]["secret_scope"]
+        self.secretScope = self.config["env"][self.environment]["secret_scope"]
 
         self.dbutils = DBUtils(self.spark)
 
         self.sqlUser = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlUserKey)
         self.sqlPassword = self.dbutils.secrets.get(scope=self.secretScope, key=self.sqlPasswordKey)
 
-        self.metadata_catalog = self.config["env"][environment]["metadata_catalog"]
-        self.metadata_schema = self.config["env"][environment]["metadata_schema"]
-        self.metadata_volume = self.config["env"][environment]["metadata_volume"]
+        self.metadata_catalog = self.config["env"][self.environment]["metadata_catalog"]
+        self.metadata_schema = self.config["env"][self.environment]["metadata_schema"]
+        self.metadata_volume = self.config["env"][self.environment]["metadata_volume"]
 
-        self.storage_accounts = self.config["env"][environment]["storage_accounts"]
+        self.storage_accounts = self.config["env"][self.environment]["storage_accounts"]
 
 
         self.sqlConnectionString = f"""jdbc:sqlserver://{self.sqlServer}.database.windows.net:1433;database={self.sqlDatabase};user={self.sqlUser};password={self.sqlPassword};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30"""
 
 
+        self.olapSqlServer = self.config["env"][self.environment]["olap_server"]
+        self.olapDatabase = self.config["env"][self.environment]["olap_database"]
+        self.olapUser = self.config["env"][self.environment]["olap_username"]
+        self.olapPassword = self.config["env"][self.environment]["olap_password"]
+
+        self.olapConnectionString = f"""jdbc:sqlserver://{self.olapSqlServer}.database.windows.net:1433;database={self.olapDatabase};user={self.olapUser};password={self.olapPassword};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30"""
 
         # Getting the Catalog and Schema.Table_Name from the received input
         self.src_catalog, self.src_schema_table = table_name_folder_split(self.source_table,self.layer)
@@ -102,7 +120,7 @@ class SCB_Reconcile():
         )
 
         #Setting up Spark Configurations to resolve any ADLS Access Issues while fetching data for reconcile
-        self.storage_account_acces(self.storage_accounts)
+        self.storage_account_access(self.storage_accounts)
 
 
         #Getting the Key Columns based on configured values and additional provided as part of user input
@@ -117,10 +135,13 @@ class SCB_Reconcile():
 
         if self.layer in ["ingestion","transformation"]:
             self.key_cols = self.key_cols_derivations.get_final_key_cols()
-            self.outbound_info = ""
+            self.outbound_info = {}
         elif self.layer in ["outbound"]:
             self.key_cols = []
             self.outbound_info = self.key_cols_derivations.outbound_config_query()
+        elif self.layer in ["olap"]:
+            self.key_cols = []
+            self.outbound_info = {}
 
         #Getting the Columns to be excluded from the Reconciliation
         self.system_exclusion_columns = ['udp_row_md5', 'udp_key_md5', 'udp_job_id', 'udp_run_id', 'batch_uuid',
@@ -141,7 +162,7 @@ class SCB_Reconcile():
         """
         return [v.key for v in self.dbutils.secrets.list(self.secretScope) if storage_name in v.key][0]
 
-    def storage_account_acces(self,storage_accounts):
+    def storage_account_access(self,storage_accounts):
         """
             Sets the Spark Configurations to resolve any ADLS Access Issues
             Input:
@@ -180,6 +201,16 @@ class SCB_Reconcile():
                 .schema
             schema_column_data_types = {field.name: field.dataType.simpleString()
                                         for field in schema.fields if field.name not in self.exclusion_cols}
+        elif self.layer in ["olap"]:
+            olap_query = f"""Select top 1 * from {self.tgt_schema_table}"""
+            schema = self.spark.read.format("jdbc")\
+                .option("url",self.olapConnectionString)\
+                .option("query",olap_query)\
+                .load()\
+                .schema
+            schema_column_data_types = {field.name: field.dataType.simpleString()
+                                        for field in schema.fields if field.name not in self.exclusion_cols}
+
         else:
             raise Exception("Invalid Layer")
         return schema_column_data_types
@@ -193,7 +224,7 @@ class SCB_Reconcile():
                 - Reconcile Config which has the Database Configuration and Reconcile Metadata Configuration updated
                 based on the Inputs provided.
         """
-        if self.layer in ["ingestion","transformation"]:
+        if self.layer in ["ingestion","transformation","olap"]:
             target_schema = self.tgt_schema_table.split(".")[0]
             source_schema = self.src_schema_table.split(".")[0]
         elif self.layer in ["outbound"]:
@@ -259,7 +290,7 @@ class SCB_Reconcile():
             Table Object to be utilized for Recon
         """
 
-        if self.layer in ["ingestion","transformation"]:
+        if self.layer in ["ingestion","transformation","olap"]:
             target_name = self.tgt_schema_table.split(".")[1]
             source_name = self.src_schema_table.split(".")[1]
         elif self.layer in ["outbound"]:
@@ -411,7 +442,8 @@ class SCB_Reconcile():
                     spark = self.spark,
                     table_recon = agg_table_recon,
                     reconcile_config = recon_config,
-                    file_config=self.outbound_info
+                    file_config=self.outbound_info,
+                    olap_connection=self.olapConnectionString
                 )
 
                 success_recon_id = exec_agg_recon.recon_id
@@ -464,7 +496,8 @@ class SCB_Reconcile():
                     spark=self.spark,
                     table_recon=row_table_recon,
                     reconcile_config=recon_config,
-                    file_config=self.outbound_info
+                    file_config=self.outbound_info,
+                    olap_connection=self.olapConnectionString
                 )
 
                 success_recon_id = success_recon_id + "," + exec_trnsfrm_recon.recon_id

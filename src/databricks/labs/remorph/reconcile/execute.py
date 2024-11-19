@@ -171,6 +171,7 @@ def recon(
     table_recon: TableRecon,
     reconcile_config: ReconcileConfig,
     file_config:dict = {},
+    olap_connection:str = "",
     local_test_run: bool = False,
 ) -> ReconcileOutput:
     """[EXPERIMENTAL] Reconcile the data between the source and target tables."""
@@ -191,7 +192,9 @@ def recon(
         spark=spark,
         ws=ws_client,
         secret_scope=reconcile_config.secret_scope,
-        file_config=file_config
+        file_config=file_config,
+        olap_connection=olap_connection
+
     )
 
     recon_id = str(uuid4())
@@ -298,14 +301,15 @@ def initialise_data_source(
     spark: SparkSession,
     engine: Dialect,
     secret_scope: str,
-    file_config:dict
+    file_config:dict,
+    olap_connection:str
 ):
-    if engine == "filestore":
+    if engine in ["filestore","olap"]:
         target_engine = engine
     else:
         target_engine = get_dialect("databricks")
-    source = create_adapter(engine=engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config)
-    target = create_adapter(engine=target_engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config)
+    source = create_adapter(engine=engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config,olap_connection=olap_connection)
+    target = create_adapter(engine=target_engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config,olap_connection=olap_connection)
 
     return source, target
 
@@ -334,6 +338,7 @@ def reconcile_aggregates(
     table_recon: TableRecon,
     reconcile_config: ReconcileConfig,
     file_config:dict = {},
+    olap_connection = "",
     local_test_run: bool = False,
 ):
     """[EXPERIMENTAL] Reconcile the aggregated data between the source and target tables.
@@ -359,6 +364,7 @@ def reconcile_aggregates(
         ws=ws_client,
         secret_scope=reconcile_config.secret_scope,
         file_config=file_config,
+        olap_connection=olap_connection
     )
 
     # Generate Unique recon_id for every run
