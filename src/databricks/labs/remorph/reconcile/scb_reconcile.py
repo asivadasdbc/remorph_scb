@@ -38,8 +38,6 @@ def table_name_folder_split(table_file_name=None,layer="ingestion"):
         logger.error("Invalid Layer, unable to derive details")
         raise Exception("Invalid Layer, unable to derive details")
 
-    print(dbx_catalog)
-    print(dbx_schema_table)
     return dbx_catalog,dbx_schema_table
 
 
@@ -58,8 +56,6 @@ class SCB_Reconcile():
         # Setting Received Parameters
         self.source_table = source_table
         self.target_table = target_table
-        print(self.source_table)
-        print(self.target_table)
         self.layer = layer
         self.additional_excl_cols_list = additional_excl_cols_list
         self.additional_key_cols_list = additional_key_cols_list
@@ -199,7 +195,7 @@ class SCB_Reconcile():
         """
         if self.layer in ["ingestion","transformation"]:
             target_schema = self.tgt_schema_table.split(".")[0]
-            source_schema = self.src_schema_table.split(".")[1]
+            source_schema = self.src_schema_table.split(".")[0]
         elif self.layer in ["outbound"]:
             target_schema = self.tgt_schema_table.split("$")[0]
             source_schema = self.src_schema_table.split("$")[0]
@@ -235,28 +231,6 @@ class SCB_Reconcile():
         )
 
         return recon_config
-
-    def data_recon_schema(self,testing_columns:List[str]):
-        """
-        Returns Schema for table to include only required columns and key columns for Data Recon
-        Input:
-            - List of Columns to be data reconciled against
-        Output:
-            - Dict of Columns containing the columns to be tested against and Key Columns
-
-        """
-        schema = self.spark.read.table(self.target_table).schema
-        inclusion_columns  = []
-
-        if len(self.key_cols) != 0:
-            if self.key_cols[0] == "*":
-                inclusion_columns = [field.name for field in schema.fields if field.name not in self.exclusion_cols]
-            else:
-                inclusion_columns = self.key_cols + testing_columns
-
-        schema_column_data_types = {field.name: field.dataType.simpleString() for field in schema.fields if
-                                    field.name in inclusion_columns}
-        return schema_column_data_types
 
     def get_table(self,
                   recon_aggs=None,
@@ -365,7 +339,6 @@ class SCB_Reconcile():
 
 
         except ReconciliationException as recon_excep:
-            print("Recon Exception")
             data_failure_output  = recon_excep.reconcile_output
 
             data_recon_passed = True
@@ -381,7 +354,6 @@ class SCB_Reconcile():
             return data_recon_passed, failed_data_recon_id, failed_columns_list
 
         except Exception as ex:
-            print(str(ex))
             raise Exception(str(ex))
 
 
@@ -428,6 +400,7 @@ class SCB_Reconcile():
 
         data_exec_required = False
         success_recon_id = ""
+        failed_recon_id = ""
         failed_columns = []
 
         try:
@@ -437,7 +410,8 @@ class SCB_Reconcile():
                     ws = self.wrkspc_client,
                     spark = self.spark,
                     table_recon = agg_table_recon,
-                    reconcile_config = recon_config
+                    reconcile_config = recon_config,
+                    file_config=self.outbound_info
                 )
 
                 success_recon_id = exec_agg_recon.recon_id
@@ -500,39 +474,18 @@ class SCB_Reconcile():
             logger.error("Row Recon Failed")
             trnfrm_recon_failure_output = trnfrm_recon_excep.reconcile_output
 
-            if failed_recon_id != "":
-                failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
-            else:
-                failed_recon_id = trnfrm_recon_failure_output.recon_id
+            failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
 
             failed_trnsfrm_recon_results: list[ReconcileTableOutput] = trnfrm_recon_failure_output.results
 
             if len(failed_trnsfrm_recon_results) != 0:
                 data_exec_required = True
-                if len(failed_columns) == 0:
-                    failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                                            where rule_id in (
-                                            Select rule_id 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                                             where recon_table_id in (
-                                             Select recon_table_id 
-                                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
-                                          .toPandas()['agg_column'])
-                else:
+                row_recon_failed_columns = list(self.spark.sql("Select data from scbucudpdev.reconcile.details \
+                where recon_table_id = '-154458977660942813' and recon_type = 'missing_in_target'")\
+                                                .toPandas()['data'].values[0][0].keys())
+                failed_columns = failed_columns + row_recon_failed_columns
 
-                    failed_columns = failed_columns + list(self.spark.sql(f"""Select distinct rule_info.agg_column 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                                            where rule_id in (
-                                            Select rule_id 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                                             where recon_table_id in (
-                                             Select recon_table_id 
-                                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
-                                          .toPandas()['agg_column'])
-
-            return data_exec_required, success_recon_id + "," +failed_recon_id, list(set(failed_columns))
+            return data_exec_required, failed_recon_id, list(set(failed_columns))
 
         except Exception as ex:
-            print(str(ex))
             raise Exception(str(ex))

@@ -333,6 +333,7 @@ def reconcile_aggregates(
     spark: SparkSession,
     table_recon: TableRecon,
     reconcile_config: ReconcileConfig,
+    file_config:dict = {},
     local_test_run: bool = False,
 ):
     """[EXPERIMENTAL] Reconcile the aggregated data between the source and target tables.
@@ -357,6 +358,7 @@ def reconcile_aggregates(
         spark=spark,
         ws=ws_client,
         secret_scope=reconcile_config.secret_scope,
+        file_config=file_config,
     )
 
     # Generate Unique recon_id for every run
