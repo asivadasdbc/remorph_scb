@@ -500,32 +500,21 @@ class Reconciliation:
         tgt_schema,
         file_config
     ):
-        if file_config:
-            src_hash_query = HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_outbound_query(
-                report_type=self._report_type
-            )
-            tgt_hash_query = HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_outbound_query(
-                report_type=self._report_type
-            )
-        else:
-            src_hash_query = HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_query(
-                report_type=self._report_type
-            )
-            tgt_hash_query = HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_query(
-                report_type=self._report_type
-            )
         src_data = self._source.read_data(
             catalog=self._database_config.source_catalog,
             schema=self._database_config.source_schema,
             table=table_conf.source_name,
-            query=src_hash_query,
+            query=HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_query(
+                report_type=self._report_type
+            ),
             options=table_conf.jdbc_reader_options,
         )
         tgt_data = self._target.read_data(
             catalog=self._database_config.target_catalog,
             schema=self._database_config.target_schema,
             table=table_conf.target_name,
-            query=tgt_hash_query,
+            query=HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_query(
+                report_type=self._report_type),
             options=table_conf.jdbc_reader_options,
         )
 
