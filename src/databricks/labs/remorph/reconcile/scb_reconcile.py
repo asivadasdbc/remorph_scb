@@ -20,18 +20,23 @@ from src.databricks.labs.remorph.reconcile.scb_key_cols_derivation import SCB_Ke
 logger = logging.getLogger(__name__)
 
 
-def table_name_split(table_name):
+def table_name_folder_split(table_file_name=None,layer="ingestion"):
 
-    table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
-    tbl_nm_matches = re.findall(table_name_pattern,table_name)
-    if len(tbl_nm_matches[0]) != 3:
-        logger.error("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
-        raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+    if layer in ("ingestion","transformation"):
+        table_name_pattern = r"^([^\.]+)\.([^\.]+)\.([^\.]+)$"
+        tbl_nm_matches = re.findall(table_name_pattern,table_file_name)
+        if len(tbl_nm_matches[0]) != 3:
+            logger.error("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+            raise Exception("Invalid Table Name, Ensure the table name is in the pattern catalog.schema.table")
+        else:
+            dbx_catalog = tbl_nm_matches[0][0]
+            dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
+    elif layer in ("outbound"):
+        dbx_catalog = "outbound"
+        dbx_schema_table = table_file_name
     else:
-        dbx_catalog = tbl_nm_matches[0][0]
-        dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
-
-
+        logger.error("Invalid Layer, unable to derive details")
+        raise Exception("Invalid Layer, unable to derive details")
 
     return dbx_catalog,dbx_schema_table
 
@@ -86,8 +91,9 @@ class SCB_Reconcile():
 
 
         # Getting the Catalog and Schema.Table_Name from the received input
-        self.src_catalog, self.src_schema_table = table_name_split(self.source_table)
-        self.tgt_catalog, self.tgt_schema_table = table_name_split(self.target_table)
+        self.src_catalog, self.src_schema_table = table_name_folder_split(self.source_table,self.layer)
+        self.tgt_catalog, self.tgt_schema_table = table_name_folder_split(self.target_table,self.layer)
+
 
         # Setting up Workspace Client for usage In Recon
         self.wrkspc_client = WorkspaceClient(
@@ -104,10 +110,17 @@ class SCB_Reconcile():
             target_table_name=self.target_table,
             connection_string=self.sqlConnectionString,
             additional_key_cols_list=self.additional_key_cols_list,
+            unique_keys_table=self.config["env"][environment]["unique_keys_table"],
+            outbound_config_table=self.config["env"][environment]["outbound_config_table"],
             spark = self.spark
         )
 
-        self.key_cols = self.key_cols_derivations.get_final_key_cols()
+        if self.layer in ["ingestion","transformation"]:
+            self.key_cols = self.key_cols_derivations.get_final_key_cols()
+            self.outbound_info = ""
+        elif self.layer in ["outbound"]:
+            self.key_cols = []
+            self.outbound_info = self.key_cols_derivations.outbound_config_query()
 
         #Getting the Columns to be excluded from the Reconciliation
         self.system_exclusion_columns = ['udp_row_md5', 'udp_key_md5', 'udp_job_id', 'udp_run_id', 'batch_uuid',
@@ -144,8 +157,6 @@ class SCB_Reconcile():
             self.spark.conf.set(f"fs.azure.sas.fixed.token.{storage_account}.dfs.core.windows.net",
                            self.dbutils.secrets.get(scope=self.secretScope, key=scope_key))
 
-
-
     def get_agg_table_schema(self):
         """
             To get a list of columns to run recon against excluding set framework columns and user provided exclusion
@@ -155,9 +166,22 @@ class SCB_Reconcile():
                 - Dict of Column and its datatype. For e.g. {"cust_id":"int"}
         """
 
-        schema = self.spark.read.table(self.target_table).schema
-        schema_column_data_types = {field.name: field.dataType.simpleString()
-                                    for field in schema.fields if field.name not in self.exclusion_cols}
+        if self.layer in ["ingestion","transformation"]:
+            schema = self.spark.read.table(self.target_table).schema
+            schema_column_data_types = {field.name: field.dataType.simpleString()
+                                        for field in schema.fields if field.name not in self.exclusion_cols}
+        elif self.layer in ["outbound"]:
+            header_exists = True if self.outbound_info['header_info'] == 'Y' else False
+            field_separator = self.outbound_info['field_separator']
+            schema = self.spark.read.format("csv")\
+                .option("header",header_exists)\
+                .option("sep",field_separator)\
+                .load(self.tgt_schema_table.split("$")[1])\
+                .schema
+            schema_column_data_types = {field.name: field.dataType.simpleString()
+                                        for field in schema.fields if field.name not in self.exclusion_cols}
+        else:
+            raise Exception("Invalid Layer")
         return schema_column_data_types
 
     def get_recon_config(self,report_type):
@@ -169,12 +193,20 @@ class SCB_Reconcile():
                 - Reconcile Config which has the Database Configuration and Reconcile Metadata Configuration updated
                 based on the Inputs provided.
         """
+        if self.layer in ["ingestion","transformation"]:
+            target_schema = self.tgt_schema_table.split(".")[0]
+            source_schema = self.src_schema_table.split(".")[0]
+        elif self.layer in ["outbound"]:
+            target_schema = self.tgt_schema_table.split("$")[0]
+            source_schema = self.src_schema_table.split("$")[0]
+        else:
+            raise  Exception("Invalid Layer")
 
         db_config = DatabaseConfig(
             source_catalog=self.src_catalog,
             target_catalog=self.tgt_catalog,
-            target_schema=self.src_schema_table.split(".")[0],
-            source_schema=self.tgt_schema_table.split(".")[0]
+            target_schema=target_schema,
+            source_schema=source_schema
         )
 
         metadata_config = ReconcileMetadataConfig(
@@ -183,8 +215,15 @@ class SCB_Reconcile():
             volume=self.metadata_volume
         )
 
+        if self.layer in ("ingestion","transformation"):
+            data_source = "databricks"
+        elif self.layer in ("outbound"):
+            data_source = "filestore"
+        else:
+            data_source = "databricks"
+
         recon_config = ReconcileConfig(
-            data_source="databricks",
+            data_source=data_source,
             report_type=report_type,
             secret_scope=None,
             database_config=db_config,
@@ -192,28 +231,6 @@ class SCB_Reconcile():
         )
 
         return recon_config
-
-    def data_recon_schema(self,testing_columns:List[str]):
-        """
-        Returns Schema for table to include only required columns and key columns for Data Recon
-        Input:
-            - List of Columns to be data reconciled against
-        Output:
-            - Dict of Columns containing the columns to be tested against and Key Columns
-
-        """
-        schema = self.spark.read.table(self.target_table).schema
-        inclusion_columns  = []
-
-        if len(self.key_cols) != 0:
-            if self.key_cols[0] == "*":
-                inclusion_columns = [field.name for field in schema.fields if field.name not in self.exclusion_cols]
-            else:
-                inclusion_columns = self.key_cols + testing_columns
-
-        schema_column_data_types = {field.name: field.dataType.simpleString() for field in schema.fields if
-                                    field.name in inclusion_columns}
-        return schema_column_data_types
 
     def get_table(self,
                   recon_aggs=None,
@@ -242,8 +259,17 @@ class SCB_Reconcile():
             Table Object to be utilized for Recon
         """
 
-        table = Table(source_name=self.src_schema_table.split('.')[1],
-                      target_name=self.tgt_schema_table.split('.')[1],
+        if self.layer in ["ingestion","transformation"]:
+            target_name = self.tgt_schema_table.split(".")[1]
+            source_name = self.src_schema_table.split(".")[1]
+        elif self.layer in ["outbound"]:
+            target_name = self.tgt_schema_table.split("$")[1]
+            source_name = self.src_schema_table.split("$")[1]
+        else:
+            raise  Exception("Invalid Layer")
+
+        table = Table(source_name=target_name,
+                      target_name=source_name,
                       aggregates=recon_aggs,
                       join_columns=recon_join_cols,
                       select_columns=recon_select_cols,
@@ -301,7 +327,8 @@ class SCB_Reconcile():
             ws = self.wrkspc_client,
             spark = self.spark,
             table_recon = table_recon,
-            reconcile_config = recon_config
+            reconcile_config = recon_config,
+            file_config = self.outbound_info
             )
 
             data_recon_passed = True
@@ -312,7 +339,6 @@ class SCB_Reconcile():
 
 
         except ReconciliationException as recon_excep:
-            print("Recon Exception")
             data_failure_output  = recon_excep.reconcile_output
 
             data_recon_passed = True
@@ -328,7 +354,6 @@ class SCB_Reconcile():
             return data_recon_passed, failed_data_recon_id, failed_columns_list
 
         except Exception as ex:
-            print(str(ex))
             raise Exception(str(ex))
 
 
@@ -363,6 +388,7 @@ class SCB_Reconcile():
 
         recon_config = self.get_recon_config(report_type)
 
+
         agg_table_recon = TableRecon(
             source_catalog=self.src_catalog,
             source_schema=self.src_schema_table.split(".")[0],
@@ -374,6 +400,7 @@ class SCB_Reconcile():
 
         data_exec_required = False
         success_recon_id = ""
+        failed_recon_id = ""
         failed_columns = []
 
         try:
@@ -383,12 +410,11 @@ class SCB_Reconcile():
                     ws = self.wrkspc_client,
                     spark = self.spark,
                     table_recon = agg_table_recon,
-                    reconcile_config = recon_config
+                    reconcile_config = recon_config,
+                    file_config=self.outbound_info
                 )
 
                 success_recon_id = exec_agg_recon.recon_id
-
-            return data_exec_required,success_recon_id,failed_columns
 
         except ReconciliationException as agg_recon_excep:
             logger.error("Aggregate Recon Failed")
@@ -407,6 +433,8 @@ class SCB_Reconcile():
                                          Select recon_table_id 
                                          from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{agg_recon_failure_output.recon_id}' ))""")\
                                               .toPandas()['agg_column'])
+
+                logger.error(f"Failed Columns : {','.join(failed_columns)}")
 
                 select_cols = select_cols + failed_columns
 
@@ -435,49 +463,29 @@ class SCB_Reconcile():
                     ws=self.wrkspc_client,
                     spark=self.spark,
                     table_recon=row_table_recon,
-                    reconcile_config=recon_config
+                    reconcile_config=recon_config,
+                    file_config=self.outbound_info
                 )
 
-                success_recon_id = exec_trnsfrm_recon.recon_id
+                success_recon_id = success_recon_id + "," + exec_trnsfrm_recon.recon_id
                 return data_exec_required, success_recon_id, failed_columns
 
         except ReconciliationException as trnfrm_recon_excep:
             logger.error("Row Recon Failed")
             trnfrm_recon_failure_output = trnfrm_recon_excep.reconcile_output
 
-            if failed_recon_id != "":
-                failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
-            else:
-                failed_recon_id = trnfrm_recon_failure_output.recon_id
+            failed_recon_id = f"{failed_recon_id},{trnfrm_recon_failure_output.recon_id}"
 
             failed_trnsfrm_recon_results: list[ReconcileTableOutput] = trnfrm_recon_failure_output.results
 
             if len(failed_trnsfrm_recon_results) != 0:
                 data_exec_required = True
-                if len(failed_columns) == 0:
-                    failed_columns = list(self.spark.sql(f"""Select distinct rule_info.agg_column 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                                            where rule_id in (
-                                            Select rule_id 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                                             where recon_table_id in (
-                                             Select recon_table_id 
-                                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
-                                          .toPandas()['agg_column'])
-                else:
-
-                    failed_columns = failed_columns + list(self.spark.sql(f"""Select distinct rule_info.agg_column 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_rules 
-                                            where rule_id in (
-                                            Select rule_id 
-                                            from {self.metadata_catalog}.{self.metadata_schema}.aggregate_details
-                                             where recon_table_id in (
-                                             Select recon_table_id 
-                                             from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
-                                          .toPandas()['agg_column'])
+                row_recon_failed_columns = list(self.spark.sql("Select data from scbucudpdev.reconcile.details \
+                where recon_table_id = '-154458977660942813' and recon_type = 'missing_in_target'")\
+                                                .toPandas()['data'].values[0][0].keys())
+                failed_columns = failed_columns + row_recon_failed_columns
 
             return data_exec_required, failed_recon_id, list(set(failed_columns))
 
         except Exception as ex:
-            print(str(ex))
             raise Exception(str(ex))

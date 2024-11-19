@@ -2,6 +2,7 @@ import logging
 import sys
 import os
 from datetime import datetime
+from logging.config import fileConfig
 from uuid import uuid4
 
 from pyspark.errors import PySparkException
@@ -169,6 +170,7 @@ def recon(
     spark: SparkSession,
     table_recon: TableRecon,
     reconcile_config: ReconcileConfig,
+    file_config:dict = {},
     local_test_run: bool = False,
 ) -> ReconcileOutput:
     """[EXPERIMENTAL] Reconcile the data between the source and target tables."""
@@ -189,6 +191,7 @@ def recon(
         spark=spark,
         ws=ws_client,
         secret_scope=reconcile_config.secret_scope,
+        file_config=file_config
     )
 
     recon_id = str(uuid4())
@@ -235,12 +238,13 @@ def recon(
 
             if report_type in {"data", "row", "all"}:
                 data_reconcile_output = _run_reconcile_data(
-                    reconciler=reconciler, table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema
+                    reconciler=reconciler, table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema, file_config=file_config
                 )
                 logger.warning(f"Reconciliation for '{report_type}' report completed.")
 
         recon_process_duration.end_ts = str(datetime.now())
         # Persist the data to the delta tables
+
         recon_capture.start(
             data_reconcile_output=data_reconcile_output,
             schema_reconcile_output=schema_reconcile_output,
@@ -294,9 +298,14 @@ def initialise_data_source(
     spark: SparkSession,
     engine: Dialect,
     secret_scope: str,
+    file_config:dict
 ):
-    source = create_adapter(engine=engine, spark=spark, ws=ws, secret_scope=secret_scope)
-    target = create_adapter(engine=get_dialect("databricks"), spark=spark, ws=ws, secret_scope=secret_scope)
+    if engine == "filestore":
+        target_engine = engine
+    else:
+        target_engine = get_dialect("databricks")
+    source = create_adapter(engine=engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config)
+    target = create_adapter(engine=target_engine, spark=spark, ws=ws, secret_scope=secret_scope,file_config=file_config)
 
     return source, target
 
@@ -324,6 +333,7 @@ def reconcile_aggregates(
     spark: SparkSession,
     table_recon: TableRecon,
     reconcile_config: ReconcileConfig,
+    file_config:dict = {},
     local_test_run: bool = False,
 ):
     """[EXPERIMENTAL] Reconcile the aggregated data between the source and target tables.
@@ -348,6 +358,7 @@ def reconcile_aggregates(
         spark=spark,
         ws=ws_client,
         secret_scope=reconcile_config.secret_scope,
+        file_config=file_config,
     )
 
     # Generate Unique recon_id for every run
@@ -454,8 +465,9 @@ class Reconciliation:
         table_conf: Table,
         src_schema: list[Schema],
         tgt_schema: list[Schema],
+        file_config: dict[str:str]
     ) -> DataReconcileOutput:
-        data_reconcile_output = self._get_reconcile_output(table_conf, src_schema, tgt_schema)
+        data_reconcile_output = self._get_reconcile_output(table_conf, src_schema, tgt_schema,file_config)
         reconcile_output = data_reconcile_output
         if self._report_type in {"data", "all"}:
             reconcile_output = self._get_sample_data(table_conf, data_reconcile_output, src_schema, tgt_schema)
@@ -488,25 +500,23 @@ class Reconciliation:
         table_conf,
         src_schema,
         tgt_schema,
+        file_config
     ):
-        src_hash_query = HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_query(
-            report_type=self._report_type
-        )
-        tgt_hash_query = HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_query(
-            report_type=self._report_type
-        )
         src_data = self._source.read_data(
             catalog=self._database_config.source_catalog,
             schema=self._database_config.source_schema,
             table=table_conf.source_name,
-            query=src_hash_query,
+            query=HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_query(
+                report_type=self._report_type
+            ),
             options=table_conf.jdbc_reader_options,
         )
         tgt_data = self._target.read_data(
             catalog=self._database_config.target_catalog,
             schema=self._database_config.target_schema,
             table=table_conf.target_name,
-            query=tgt_hash_query,
+            query=HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_query(
+                report_type=self._report_type),
             options=table_conf.jdbc_reader_options,
         )
 
@@ -833,7 +843,6 @@ class Reconciliation:
             return ReconcileRecordCount(source=int(source_count), target=int(target_count))
         return ReconcileRecordCount()
 
-
 def _get_schema(
     source: DataSource,
     target: DataSource,
@@ -859,9 +868,10 @@ def _run_reconcile_data(
     table_conf: Table,
     src_schema: list[Schema],
     tgt_schema: list[Schema],
+    file_config: dict[str:str],
 ) -> DataReconcileOutput:
     try:
-        return reconciler.reconcile_data(table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema)
+        return reconciler.reconcile_data(table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema, file_config=file_config)
     except DataSourceRuntimeException as e:
         return DataReconcileOutput(exception=str(e))
 

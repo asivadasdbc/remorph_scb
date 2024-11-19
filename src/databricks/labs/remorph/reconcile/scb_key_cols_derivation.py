@@ -8,17 +8,44 @@ class SCB_Key_Cols_Derivation():
                  target_table_name:str,
                  connection_string:str,
                  additional_key_cols_list:List[str],
+                 unique_keys_table:str,
+                 outbound_config_table:str,
                  spark:SparkSession):
 
         self.target_table_name = target_table_name
         self.connection_string = connection_string
         self.additional_key_cols_list = additional_key_cols_list
-        self.configuration_table = "p1dcfudp.UDP_JOB_TRANSFORM_CHK_UNQ"
+        self.unique_keys_table = unique_keys_table
+        self.outbound_config_table = outbound_config_table
         self.spark = spark
 
-    def query(self):
+    def outbound_config_query(self):
 
-        query_string = f"""Select column_nm_key from {self.configuration_table} 
+        outbound_job = self.target_table_name.split("$")[0]
+
+        query_string = f"""Select src_fl_nm_ext,field_separator,header_info,quotation
+         from {self.outbound_config_table}  where job_name = '{outbound_job}'"""
+
+        configuration_data = self.spark.read \
+            .format("jdbc") \
+            .option("url", self.connection_string) \
+            .option("query", query_string) \
+            .load()
+
+        if configuration_data.count() > 0:
+            configuration_data_dict = configuration_data.toPandas().to_dict('records')[0]
+        else:
+            raise Exception(f"Outbound Job {outbound_job} not found ")
+
+
+        configuration_data.display()
+
+        return configuration_data_dict
+
+
+    def unique_keys_query(self):
+
+        query_string = f"""Select column_nm_key from {self.unique_keys_table} 
         where catalog_nm = '{self.target_table_name.split(".")[0]}' and schema_nm = 
         '{self.target_table_name.split(".")[1]}' and table_nm = '{self.target_table_name.split(".")[-1]}'"""
 
@@ -33,7 +60,7 @@ class SCB_Key_Cols_Derivation():
         return configuration_data
 
     def get_final_key_cols(self):
-        configured_key_cols = self.query()
+        configured_key_cols = self.unique_keys_query()
         if configured_key_cols.isEmpty():
             configured_key_cols_str = ''
         else:

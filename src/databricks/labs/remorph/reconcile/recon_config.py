@@ -143,8 +143,8 @@ class Table:
     table_thresholds: list[TableThresholds] | None = None
 
     def __post_init__(self):
-        self.source_name = self.source_name.lower()
-        self.target_name = self.target_name.lower()
+        self.source_name = self.source_name
+        self.target_name = self.target_name
         self.select_columns = to_lower_case(self.select_columns) if self.select_columns else None
         self.drop_columns = to_lower_case(self.drop_columns) if self.drop_columns else None
         self.join_columns = to_lower_case(self.join_columns) if self.join_columns else None
