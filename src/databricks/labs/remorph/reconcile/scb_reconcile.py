@@ -37,6 +37,9 @@ def table_name_folder_split(table_file_name=None,layer="ingestion"):
     else:
         logger.error("Invalid Layer, unable to derive details")
         raise Exception("Invalid Layer, unable to derive details")
+
+    print(dbx_catalog)
+    print(dbx_schema_table)
     return dbx_catalog,dbx_schema_table
 
 
@@ -55,6 +58,8 @@ class SCB_Reconcile():
         # Setting Received Parameters
         self.source_table = source_table
         self.target_table = target_table
+        print(self.source_table)
+        print(self.target_table)
         self.layer = layer
         self.additional_excl_cols_list = additional_excl_cols_list
         self.additional_key_cols_list = additional_key_cols_list
@@ -165,9 +170,22 @@ class SCB_Reconcile():
                 - Dict of Column and its datatype. For e.g. {"cust_id":"int"}
         """
 
-        schema = self.spark.read.table(self.target_table).schema
-        schema_column_data_types = {field.name: field.dataType.simpleString()
-                                    for field in schema.fields if field.name not in self.exclusion_cols}
+        if self.layer in ["ingestion","transformation"]:
+            schema = self.spark.read.table(self.target_table).schema
+            schema_column_data_types = {field.name: field.dataType.simpleString()
+                                        for field in schema.fields if field.name not in self.exclusion_cols}
+        elif self.layer in ["outbound"]:
+            header_exists = True if self.outbound_info['header_info'] == 'Y' else False
+            field_separator = self.outbound_info['field_separator']
+            schema = self.spark.read.format("csv")\
+                .option("header",header_exists)\
+                .option("sep",field_separator)\
+                .load(self.tgt_schema_table.split("$")[1])\
+                .schema
+            schema_column_data_types = {field.name: field.dataType.simpleString()
+                                        for field in schema.fields if field.name not in self.exclusion_cols}
+        else:
+            raise Exception("Invalid Layer")
         return schema_column_data_types
 
     def get_recon_config(self,report_type):
@@ -179,12 +197,20 @@ class SCB_Reconcile():
                 - Reconcile Config which has the Database Configuration and Reconcile Metadata Configuration updated
                 based on the Inputs provided.
         """
+        if self.layer in ["ingestion","transformation"]:
+            target_schema = self.tgt_schema_table.split(".")[0]
+            source_schema = self.src_schema_table.split(".")[1]
+        elif self.layer in ["outbound"]:
+            target_schema = self.tgt_schema_table.split("$")[0]
+            source_schema = self.src_schema_table.split("$")[0]
+        else:
+            raise  Exception("Invalid Layer")
 
         db_config = DatabaseConfig(
             source_catalog=self.src_catalog,
             target_catalog=self.tgt_catalog,
-            target_schema=self.src_schema_table.split(".")[0],
-            source_schema=self.tgt_schema_table.split(".")[0]
+            target_schema=target_schema,
+            source_schema=source_schema
         )
 
         metadata_config = ReconcileMetadataConfig(
@@ -259,8 +285,17 @@ class SCB_Reconcile():
             Table Object to be utilized for Recon
         """
 
-        table = Table(source_name=self.src_schema_table.split('.')[1],
-                      target_name=self.tgt_schema_table.split('.')[1],
+        if self.layer in ["ingestion","transformation"]:
+            target_name = self.tgt_schema_table.split(".")[1]
+            source_name = self.src_schema_table.split(".")[1]
+        elif self.layer in ["outbound"]:
+            target_name = self.tgt_schema_table.split("$")[1]
+            source_name = self.src_schema_table.split("$")[1]
+        else:
+            raise  Exception("Invalid Layer")
+
+        table = Table(source_name=target_name,
+                      target_name=source_name,
                       aggregates=recon_aggs,
                       join_columns=recon_join_cols,
                       select_columns=recon_select_cols,
@@ -381,6 +416,7 @@ class SCB_Reconcile():
 
         recon_config = self.get_recon_config(report_type)
 
+
         agg_table_recon = TableRecon(
             source_catalog=self.src_catalog,
             source_schema=self.src_schema_table.split(".")[0],
@@ -405,8 +441,6 @@ class SCB_Reconcile():
                 )
 
                 success_recon_id = exec_agg_recon.recon_id
-
-            return data_exec_required,success_recon_id,failed_columns
 
         except ReconciliationException as agg_recon_excep:
             logger.error("Aggregate Recon Failed")
@@ -459,7 +493,7 @@ class SCB_Reconcile():
                     file_config=self.outbound_info
                 )
 
-                success_recon_id = exec_trnsfrm_recon.recon_id
+                success_recon_id = success_recon_id + "," + exec_trnsfrm_recon.recon_id
                 return data_exec_required, success_recon_id, failed_columns
 
         except ReconciliationException as trnfrm_recon_excep:
@@ -497,7 +531,7 @@ class SCB_Reconcile():
                                              from {self.metadata_catalog}.{self.metadata_schema}.main where recon_id = '{trnfrm_recon_failure_output.recon_id}' ))""")\
                                           .toPandas()['agg_column'])
 
-            return data_exec_required, failed_recon_id, list(set(failed_columns))
+            return data_exec_required, success_recon_id + "," +failed_recon_id, list(set(failed_columns))
 
         except Exception as ex:
             print(str(ex))

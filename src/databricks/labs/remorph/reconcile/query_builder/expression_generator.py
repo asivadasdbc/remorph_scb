@@ -263,4 +263,8 @@ Dialect_hash_algo_mapping: dict[Dialect, HashAlgoMapping] = {
         source=md5_partial,
         target=md5_partial,
     ),
+    get_dialect("filestore"): HashAlgoMapping(
+        source=md5_partial,
+        target=md5_partial,
+    ),
 }

@@ -37,15 +37,19 @@ class FileStoreDataSource(DataSource, SecretsMixin):
         catalog: str | None,
         schema: str,
         table: str,
-        query: str,
+        query: list[str],
         options: JdbcReaderOptions | None,
     ) -> DataFrame:
 
         header = True if self._file_config['header_info'] == 'Y' else False
         field_separator = self._file_config['field_separator']
+        table_query = query.replace(":tbl", "file_data")
         try:
-            df = self._spark.read.format("csv").option("header", header).option("sep", field_separator).load(table)
-            return df.select([col(column).alias(column.lower()) for column in df.columns])
+            self._spark.read.format("csv")\
+                .option("header", header).option("sep", field_separator).load(table)\
+                .createOrReplaceTempView("file_data")
+            df = self._spark.sql(table_query)
+            return df.select([col(column).alias(column.lower()) for column in df.columns]).selectExpr(*query)
         except (RuntimeError, PySparkException) as e:
             return self.log_and_throw_exception(e, "data", table)
 
@@ -60,9 +64,9 @@ class FileStoreDataSource(DataSource, SecretsMixin):
 
         try:
             logger.info(f"Fetching Schema: Started at: {datetime.now()}")
-            schema_metadata = self._spark.read.format("csv").option("header", header).option("sep", field_separator).load(table)\
-                .where("col_name not like '#%'").distinct().collect()
+            schema_metadata = self._spark.read.format("csv").option("header", header).option("sep", field_separator)\
+                .load(table).schema
             logger.info(f"Schema fetched successfully. Completed at: {datetime.now()}")
-            return [Schema(field.col_name.lower(), field.data_type.lower()) for field in schema_metadata]
+            return [Schema(field.name.lower(), field.dataType.simpleString().lower()) for field in schema_metadata if '#' not in field.name]
         except (RuntimeError, PySparkException) as e:
             return self.log_and_throw_exception(e, "schema", "File Read")

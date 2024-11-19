@@ -70,6 +70,51 @@ class HashQueryBuilder(QueryBuilder):
         logger.info(f"Hash Query for {self.layer}: {res}")
         return res
 
+    def build_outbound_query(self, report_type: str) -> list[str]:
+
+        if report_type != 'row':
+            self._validate(self.join_columns, f"Join Columns are compulsory for {report_type} type")
+
+        _join_columns = self.join_columns if self.join_columns else set()
+        hash_cols = sorted((_join_columns | self.select_columns) - self.threshold_columns - self.drop_columns)
+
+        key_cols = hash_cols if report_type == "row" else sorted(_join_columns | self.partition_column)
+
+        cols_with_alias = [
+            build_column(this=col, alias=self.table_conf.get_layer_tgt_to_src_col_mapping(col, self.layer))
+            for col in key_cols
+        ]
+
+
+
+        # in case if we have column mapping, we need to sort the target columns in the order of source columns to get
+        # same hash value
+        hash_cols_with_alias = [
+            {"this": col, "alias": self.table_conf.get_layer_tgt_to_src_col_mapping(col, self.layer)}
+            for col in hash_cols
+        ]
+        sorted_hash_cols_with_alias = sorted(hash_cols_with_alias, key=lambda column: column["alias"])
+        hashcols_sorted_as_src_seq = [column["this"] for column in sorted_hash_cols_with_alias]
+
+        key_cols_with_transform = (
+            self._apply_user_transformation(cols_with_alias) if self.user_transformations else cols_with_alias
+        )
+        hash_col_with_transform = [self._generate_hash_algorithm(hashcols_sorted_as_src_seq, _HASH_COLUMN_NAME)]
+
+
+
+        dialect = self.engine
+
+        res = (
+            exp.select(*hash_col_with_transform + key_cols_with_transform)
+            .from_(":tbl")
+            .where(self.filter)
+            .sql(dialect=dialect)
+        )
+
+        logger.info(f"Hash Query for {self.layer}: {res}")
+        return res
+
     def _generate_hash_algorithm(
         self,
         cols: list[str],

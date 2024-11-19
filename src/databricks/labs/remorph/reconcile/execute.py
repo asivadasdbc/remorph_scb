@@ -238,18 +238,24 @@ def recon(
 
             if report_type in {"data", "row", "all"}:
                 data_reconcile_output = _run_reconcile_data(
-                    reconciler=reconciler, table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema
+                    reconciler=reconciler, table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema, file_config=file_config
                 )
                 logger.warning(f"Reconciliation for '{report_type}' report completed.")
 
         recon_process_duration.end_ts = str(datetime.now())
         # Persist the data to the delta tables
+
+        if file_config:
+            record_counts = reconciler.get_outbound_record_count(table_conf,report_type)
+        else:
+            record_counts = reconciler.get_record_count(table_conf, report_type)
+
         recon_capture.start(
             data_reconcile_output=data_reconcile_output,
             schema_reconcile_output=schema_reconcile_output,
             table_conf=table_conf,
             recon_process_duration=recon_process_duration,
-            record_count=reconciler.get_record_count(table_conf, report_type),
+            record_count=record_counts,
         )
         if report_type != "schema":
             ReconIntermediatePersist(
@@ -462,8 +468,9 @@ class Reconciliation:
         table_conf: Table,
         src_schema: list[Schema],
         tgt_schema: list[Schema],
+        file_config: dict[str:str]
     ) -> DataReconcileOutput:
-        data_reconcile_output = self._get_reconcile_output(table_conf, src_schema, tgt_schema)
+        data_reconcile_output = self._get_reconcile_output(table_conf, src_schema, tgt_schema,file_config)
         reconcile_output = data_reconcile_output
         if self._report_type in {"data", "all"}:
             reconcile_output = self._get_sample_data(table_conf, data_reconcile_output, src_schema, tgt_schema)
@@ -496,13 +503,22 @@ class Reconciliation:
         table_conf,
         src_schema,
         tgt_schema,
+        file_config
     ):
-        src_hash_query = HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_query(
-            report_type=self._report_type
-        )
-        tgt_hash_query = HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_query(
-            report_type=self._report_type
-        )
+        if file_config:
+            src_hash_query = HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_outbound_query(
+                report_type=self._report_type
+            )
+            tgt_hash_query = HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_outbound_query(
+                report_type=self._report_type
+            )
+        else:
+            src_hash_query = HashQueryBuilder(table_conf, src_schema, "source", self._source_engine).build_query(
+                report_type=self._report_type
+            )
+            tgt_hash_query = HashQueryBuilder(table_conf, tgt_schema, "target", self._source_engine).build_query(
+                report_type=self._report_type
+            )
         src_data = self._source.read_data(
             catalog=self._database_config.source_catalog,
             schema=self._database_config.source_schema,
@@ -841,6 +857,24 @@ class Reconciliation:
             return ReconcileRecordCount(source=int(source_count), target=int(target_count))
         return ReconcileRecordCount()
 
+    def get_outbound_record_count(self,table_conf:Table,report_type:str) -> ReconcileRecordCount:
+        if report_type != "schema":
+            source_count = self._source.read_data(
+                catalog=self._database_config.source_catalog,
+                schema=self._database_config.source_schema,
+                table=table_conf.source_name,
+                query="",
+                options=None,
+            ).count()
+            target_count = self._target.read_data(
+                catalog=self._database_config.target_catalog,
+                schema=self._database_config.target_schema,
+                table=table_conf.target_name,
+                query="",
+                options=None,
+            ).count()
+            return ReconcileRecordCount(source=int(source_count), target=int(target_count))
+        return ReconcileRecordCount()
 
 def _get_schema(
     source: DataSource,
@@ -867,9 +901,10 @@ def _run_reconcile_data(
     table_conf: Table,
     src_schema: list[Schema],
     tgt_schema: list[Schema],
+    file_config: dict[str:str],
 ) -> DataReconcileOutput:
     try:
-        return reconciler.reconcile_data(table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema)
+        return reconciler.reconcile_data(table_conf=table_conf, src_schema=src_schema, tgt_schema=tgt_schema, file_config=file_config)
     except DataSourceRuntimeException as e:
         return DataReconcileOutput(exception=str(e))
 

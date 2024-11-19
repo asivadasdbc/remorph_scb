@@ -6,7 +6,7 @@ env:
     sql_username_key: "dbusr--udp--scbudpseaasq001dev--federatedb"
     sql_password_key: "dbpwd--udp--scbudpseaasq001dev--federatedb"
     unique_keys_table: "p1dcfudp.UDP_JOB_TRANSFORM_CHK_UNQ"
-    outbound_mapping_table: "p1dcfudp.UDP_JOB_OUTBOUND"
+    outbound_config_table: "p1dcfudp.UDP_JOB_OUTBOUND"
     storage_accounts: ["scbdipseasta001stddev","scbdipseasta002stddev","scbdipseasta003stddev","scbdipseasta004stddev",
                        "scbdipseasta005stddev","scbdipseasta006stddev","scbdipseasta007stddev","scbdipseasta008stddev",
                        "scbdipseasta009stddev","scbdipseasta010stddev","scbdipseasta011stddev","scbdipseasta013stddev",

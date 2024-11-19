@@ -67,7 +67,7 @@ reconcile_process = SCB_Reconcile(environment = environment,
                                   spark=spark)
 data_reconcile_required,agg_recon_id,failed_recon_cols = reconcile_process.execute_aggregate_recons(report_type = "row")
 aggregate_recon_id = agg_recon_id.split(',')[0]
-row_recon_id = agg_recon_id.split(',')[1]
+row_recon_id = agg_recon_id.split(',')[1] if len(agg_recon_id.split(",")) > 1
 if data_reconcile_required:
     print(f"""*****Aggregation Reconciliation failed, Id: {agg_recon_id.split(',')[0]}, additional Row Reconciliation performed with the Id: {agg_recon_id.split(',')[1]},
      for columns {failed_recon_cols}, please check the metadata table for details********""")
@@ -77,7 +77,7 @@ if data_reconcile_required:
         print(f"""*****Data Reconciliation failed, Id: {data_recon_id}, please check the metadata table for details********""")
     data_recon_id = data_recon_id
 else:
-    print(f"*****Succesfully Aggregation Reconciliation Completed with Id: {agg_recon_id.split(',')[0]}, additional Row Reconciliation performed with the Id: {agg_recon_id.split(',')[1]}********")
+    print(f"*****Succesfully Aggregation Reconciliation Completed with Id: {agg_recon_id.split(',')[0]}, additional Row Reconciliation performed with the Id: {agg_recon_id.split(',')[1] if len(agg_recon_id.split(",")) > 1}********")
 
 # COMMAND ----------
 
