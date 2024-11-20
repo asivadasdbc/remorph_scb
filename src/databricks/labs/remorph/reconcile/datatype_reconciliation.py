@@ -86,11 +86,6 @@ class DataType_Recon():
                 agg_columns=[column_name],
                 type="MAX",
                 group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
-            ),
-            Aggregate(
-                agg_columns=[column_name],
-                type="SUM",
-                group_by_columns = grp_by_clmns if len(grp_by_clmns) != 0 else ['dl_data_dt']
             )
         ]
 

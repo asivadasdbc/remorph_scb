@@ -38,8 +38,6 @@ class SCB_Key_Cols_Derivation():
             raise Exception(f"Outbound Job {outbound_job} not found ")
 
 
-        configuration_data.display()
-
         return configuration_data_dict
 
 
@@ -54,8 +52,6 @@ class SCB_Key_Cols_Derivation():
             .option("url", self.connection_string) \
             .option("query", query_string) \
             .load()
-
-        configuration_data.display()
 
         return configuration_data
 

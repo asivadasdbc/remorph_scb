@@ -50,7 +50,7 @@ class OlapDataSource(DataSource, SecretsMixin):
                 .option("url", self._connection_string)\
                 .option("query",data_read_query)\
                 .load()\
-                .createOrReplaceTempView("file_data")
+                .createOrReplaceTempView("olap_data")
             df = self._spark.sql(table_query)
 
             return df.select([col(column).alias(column.lower()) for column in df.columns])
@@ -63,17 +63,21 @@ class OlapDataSource(DataSource, SecretsMixin):
         schema: str,
         table: str,
     ) -> list[Schema]:
+        schema_read_query = f"""Select * from {schema}.{table}"""
 
         try:
-            data_read_query = f"""Select top 1 * from {schema}.{table}"""
             logger.info(f"Fetching Schema: Started at: {datetime.now()}")
-            schema_metadata = self._spark.read.format("jdbc")\
-                .option("url", self._connection_string)\
-                .option("query",data_read_query)\
-                .load()\
-                .createOrReplaceTempView("file_data")\
-                .schema
+
+            self._spark.read.format("jdbc") \
+                .option("url", self._connection_string) \
+                .option("query", schema_read_query) \
+                .load() \
+                .createOrReplaceTempView("olap_data")
+
+            schema_metadata = self._spark.sql("Select * from olap_data")
+
+            schema_data = schema_metadata.schema
             logger.info(f"Schema fetched successfully. Completed at: {datetime.now()}")
-            return [Schema(field.name.lower(), field.dataType.simpleString().lower()) for field in schema_metadata if '#' not in field.name]
+            return [Schema(field.name.lower(), field.dataType.simpleString().lower()) for field in schema_data if '#' not in field.name]
         except (RuntimeError, PySparkException) as e:
             return self.log_and_throw_exception(e, "schema", "File Read")

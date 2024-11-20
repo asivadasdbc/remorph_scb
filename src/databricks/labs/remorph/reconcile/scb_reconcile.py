@@ -44,7 +44,7 @@ def table_name_folder_split(table_file_name=None,layer="ingestion"):
             raise Exception("Invalid Table Name, Ensure the table name is in the pattern schema.table")
         else:
             dbx_catalog = "olap"
-            dbx_schema_table = tbl_nm_matches[0][1]+ "." + tbl_nm_matches[0][2]
+            dbx_schema_table = table_file_name
     else:
         logger.error("Invalid Layer, unable to derive details")
         raise Exception("Invalid Layer, unable to derive details")
@@ -211,6 +211,7 @@ class SCB_Reconcile():
             schema_column_data_types = {field.name: field.dataType.simpleString()
                                         for field in schema.fields if field.name not in self.exclusion_cols}
 
+
         else:
             raise Exception("Invalid Layer")
         return schema_column_data_types
@@ -246,10 +247,12 @@ class SCB_Reconcile():
             volume=self.metadata_volume
         )
 
-        if self.layer in ("ingestion","transformation"):
+        if self.layer in ["ingestion","transformation"]:
             data_source = "databricks"
-        elif self.layer in ("outbound"):
+        elif self.layer in ["outbound"]:
             data_source = "filestore"
+        elif self.layer in ["olap"]:
+            data_source = "olap"
         else:
             data_source = "databricks"
 
@@ -324,7 +327,15 @@ class SCB_Reconcile():
                 Columns against which Recon failed
         """
 
+        logging.info("DATA RECON STARTED")
+
         recon_join_cols = self.key_cols
+
+        logging.info("RECON JOIN COLS")
+        logging.info(recon_join_cols)
+
+        logging.info("RECON COLS")
+        logging.info(recon_columns)
 
         if self.data_comparison_filter != '':
             recon_filter = Filters(source = f"{self.data_comparison_filter}",
@@ -354,13 +365,16 @@ class SCB_Reconcile():
         )
 
         try:
+            logging.info("DATA RECON STARTED")
             exec_data_recon = recon(
             ws = self.wrkspc_client,
             spark = self.spark,
             table_recon = table_recon,
             reconcile_config = recon_config,
-            file_config = self.outbound_info
+            file_config = self.outbound_info,
+            olap_connection= self.olapConnectionString
             )
+            logging.info("DATA RECON FINISHED")
 
             data_recon_passed = True
             success_data_recon_id = exec_data_recon.recon_id
@@ -370,6 +384,7 @@ class SCB_Reconcile():
 
 
         except ReconciliationException as recon_excep:
+            logging.error("DATA RECON FAILED")
             data_failure_output  = recon_excep.reconcile_output
 
             data_recon_passed = True
@@ -501,6 +516,7 @@ class SCB_Reconcile():
                 )
 
                 success_recon_id = success_recon_id + "," + exec_trnsfrm_recon.recon_id
+                logger.info("Row Recon Completed")
                 return data_exec_required, success_recon_id, failed_columns
 
         except ReconciliationException as trnfrm_recon_excep:

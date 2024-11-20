@@ -184,7 +184,6 @@ def recon(
 
     # validate the report type
     report_type = reconcile_config.report_type.lower()
-    logger.info(f"report_type: {report_type}, data_source: {reconcile_config.data_source} ")
     validate_input(report_type, {"schema", "data", "row", "all"}, "Invalid report type")
 
     source, target = initialise_data_source(
@@ -355,7 +354,6 @@ def reconcile_aggregates(
     report_type = ""
     if report_type:
         logger.info(f"report_type: {report_type}")
-    logger.info(f"data_source: {reconcile_config.data_source}")
 
     # Read the reconcile_config and initialise the source and target data sources. Target is always Databricks
     source, target = initialise_data_source(
@@ -855,6 +853,7 @@ def _get_schema(
     table_conf: Table,
     database_config: DatabaseConfig,
 ) -> tuple[list[Schema], list[Schema]]:
+
     src_schema = source.get_schema(
         catalog=database_config.source_catalog,
         schema=database_config.source_schema,
