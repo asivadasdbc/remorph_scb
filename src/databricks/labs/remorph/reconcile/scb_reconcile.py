@@ -211,7 +211,7 @@ class SCB_Reconcile():
             schema_column_data_types = {field.name: field.dataType.simpleString()
                                         for field in schema.fields if field.name not in self.exclusion_cols}
             olap_keys = ["strt_dt","load_dt"]
-            olap_group_by_columns = [key_value.lower() for key_value in list(schema_column_data_types.keys()) if key_value.lower() in olap_keys]
+            olap_group_by_columns = [key_value for key_value in list(schema_column_data_types.keys()) if key_value.lower() in olap_keys]
 
 
         else:
@@ -431,6 +431,7 @@ class SCB_Reconcile():
 
 
         recon_aggs, select_cols = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,group_by_columns)
+        print(select_cols)
 
         if self.data_comparison_filter != '':
             recon_filter = Filters(source=f"{self.data_comparison_filter}",
@@ -467,7 +468,7 @@ class SCB_Reconcile():
         try:
             logger.info("Executing Aggregate Recon")
 
-            if (len(recon_aggs) != 0) and ((self.layer == "olap") and (len(group_by_columns) != 0)):
+            if (len(recon_aggs) != 0) and (len(group_by_columns) != 0):
 
                 exec_agg_recon = reconcile_aggregates(
                     ws = self.wrkspc_client,
@@ -506,6 +507,7 @@ class SCB_Reconcile():
         try:
             logger.info("Executing Row Recon")
             if len(select_cols) != 0:
+                print(select_cols)
                 row_recon_table = self.get_table(recon_aggs=recon_aggs,
                                                  recon_join_cols=None,
                                                  recon_select_cols=select_cols,

@@ -3,9 +3,15 @@
 # MAGIC # SCB Reconcile
 # MAGIC ## Input Parameters:
 # MAGIC - **environment**: _Environment Value, supported **dldev**, **dlsit**, **dlprod**_
-# MAGIC - **source_table_name**: Source Table for the Reconciliation, should be in the format **schema.catalog.table**_
-# MAGIC - **target_table_name**: Target Table for the Reconciliation, should be in the format **schema.catalog.table**_
-# MAGIC - **layer_name**: Layer for the Reconciliation, supported values: **ingestion**, **transformation**, **olap**, **outbound**_
+# MAGIC - **source_table_name**:
+# MAGIC     - In case of Ingestion Source Table for the Reconciliation, should be in the format **catalog.schema.table**
+# MAGIC     - In case of OLAP Source Table for Reconciliation, should be in the format **schema.table**
+# MAGIC     - In case of Outbound Source File for Reconciliation, should be in the format **outbound_job_id$filePath**
+# MAGIC - **target_table_name**:
+# MAGIC     - In case of Ingestion Target Table for the Reconciliation, should be in the format **catalog.schema.table**
+# MAGIC     - In case of OLAP Target Table for Reconciliation, should be in the format **schema.table**
+# MAGIC     - In case of Outbound Target File for Reconciliation, should be in the format **outbound_job_id$filePath**
+# MAGIC - **layer_name**: Layer for the Reconciliation, supported values: **ingestion**, **transformation**, **olap**, **outbound**
 # MAGIC - **additional_exclusion_columns**: Additional Columns to be excluded for Reconciliation requires a comma separated list of columns_
 # MAGIC - **additional_key_columns**: Additional Columns to be used as Key for Data Reconciliation requires a comma separated list of columns_
 # MAGIC - **data_comparison_filter**: Data Comparison filter to be provided in the format of sql string, for e.g. dl_data_dt='2022-11-29'_
@@ -55,8 +61,9 @@ row_recon_id = ""
 data_recon_id = ""
 
 # COMMAND ----------
+
 import logging
-logging.getLogger().setLevel(logging.WARN)
+logging.getLogger().setLevel(logging.INFO)
 
 from src.databricks.labs.remorph.reconcile.scb_reconcile import SCB_Reconcile
 reconcile_process = SCB_Reconcile(environment = environment,
@@ -80,6 +87,10 @@ if data_reconcile_required:
     data_recon_id = data_recon_id
 else:
     print(f"*****Succesfully Aggregation Reconciliation Completed with Id: {agg_recon_id.split(',')[0]}, additional Row Reconciliation performed with the Id: {agg_recon_id.split(',')[1] if len(agg_recon_id.split(',')) > 1 else ''}********")
+
+# COMMAND ----------
+
+print(row_recon_id)
 
 # COMMAND ----------
 

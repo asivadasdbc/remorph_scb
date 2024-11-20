@@ -69,6 +69,6 @@ class FileStoreDataSource(DataSource, SecretsMixin):
             schema_metadata = self._spark.read.format("csv").option("header", header).option("sep", field_separator)\
                 .load(table).schema
             logger.info(f"Schema fetched successfully. Completed at: {datetime.now()}")
-            return [Schema(field.name.lower(), field.dataType.simpleString().lower()) for field in schema_metadata if '#' not in field.name]
+            return [Schema(field.name, field.dataType.simpleString().lower()) for field in schema_metadata if '#' not in field.name]
         except (RuntimeError, PySparkException) as e:
             return self.log_and_throw_exception(e, "schema", "File Read")
