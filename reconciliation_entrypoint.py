@@ -55,8 +55,9 @@ row_recon_id = ""
 data_recon_id = ""
 
 # COMMAND ----------
-+ import logging
-+ logging.getLogger().setLevel(logging.WARN)
+import logging
+logging.getLogger().setLevel(logging.WARN)
+
 from src.databricks.labs.remorph.reconcile.scb_reconcile import SCB_Reconcile
 reconcile_process = SCB_Reconcile(environment = environment,
                                   source_table=source_table_name,

@@ -1,5 +1,3 @@
-from dataclasses import field
-
 from databricks.sdk import WorkspaceClient
 from pyspark.sql import SparkSession
 from pyspark.dbutils import DBUtils
@@ -191,6 +189,7 @@ class SCB_Reconcile():
             schema = self.spark.read.table(self.target_table).schema
             schema_column_data_types = {field.name: field.dataType.simpleString()
                                         for field in schema.fields if field.name not in self.exclusion_cols}
+            olap_group_by_columns = []
         elif self.layer in ["outbound"]:
             header_exists = True if self.outbound_info['header_info'] == 'Y' else False
             field_separator = self.outbound_info['field_separator']
@@ -201,6 +200,7 @@ class SCB_Reconcile():
                 .schema
             schema_column_data_types = {field.name: field.dataType.simpleString()
                                         for field in schema.fields if field.name not in self.exclusion_cols}
+            olap_group_by_columns = []
         elif self.layer in ["olap"]:
             olap_query = f"""Select top 1 * from {self.tgt_schema_table}"""
             schema = self.spark.read.format("jdbc")\
@@ -210,11 +210,13 @@ class SCB_Reconcile():
                 .schema
             schema_column_data_types = {field.name: field.dataType.simpleString()
                                         for field in schema.fields if field.name not in self.exclusion_cols}
+            olap_keys = ["strt_dt","load_dt"]
+            olap_group_by_columns = [key_value.lower() for key_value in list(schema_column_data_types.keys()) if key_value.lower() in olap_keys]
 
 
         else:
             raise Exception("Invalid Layer")
-        return schema_column_data_types
+        return schema_column_data_types, olap_group_by_columns
 
     def get_recon_config(self,report_type):
         """
@@ -413,10 +415,23 @@ class SCB_Reconcile():
                 Aggregation Recon Id
                 Columns against which Recon failed
         """
+
         logger.info("Starting Aggregate & Row Recon")
         recon_agg_helper = DataType_Recon()
-        input_columns_mapping = self.get_agg_table_schema()
-        recon_aggs, select_cols = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,[])
+        input_columns_mapping,olap_group_by_column = self.get_agg_table_schema()
+
+        if self.layer in ["ingestion","transformation"]:
+            group_by_columns = ["dl_data_dt"]
+        elif self.layer in ["outbound"]:
+            group_by_columns = ["DATA_DT"]
+        elif self.layer in ["olap"]:
+            group_by_columns = olap_group_by_column
+        else:
+            raise Exception("Invalid Layer")
+
+
+        recon_aggs, select_cols = recon_agg_helper.get_agg_recon_table_objects(input_columns_mapping,group_by_columns)
+
         if self.data_comparison_filter != '':
             recon_filter = Filters(source=f"{self.data_comparison_filter}",
                                    target=f"{self.data_comparison_filter}")
@@ -451,7 +466,9 @@ class SCB_Reconcile():
 
         try:
             logger.info("Executing Aggregate Recon")
-            if len(recon_aggs) != 0:
+
+            if (len(recon_aggs) != 0) and ((self.layer == "olap") and (len(group_by_columns) != 0)):
+
                 exec_agg_recon = reconcile_aggregates(
                     ws = self.wrkspc_client,
                     spark = self.spark,
